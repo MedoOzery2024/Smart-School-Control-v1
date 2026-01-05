@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { ViewState, UserRole, SchoolType, SchoolStage } from './types';
+import { ViewState, UserRole, SchoolType, SchoolStage, Notification } from './types';
 import { MOCK_SCHOOL } from './constants';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import UserManagement from './components/UserManagement';
 import Schedule from './components/Schedule';
+import Attendance from './components/Attendance';
 import AIGenerator from './components/AIGenerator';
 import ExamBuilder from './components/ExamBuilder';
 import ResultsManager from './components/ResultsManager';
 import Certificates from './components/Certificates';
 import TeacherStats from './components/TeacherStats';
+import StudyMaterials from './components/StudyMaterials';
 import Settings from './components/Settings';
 import Logo from './components/Logo';
 
@@ -36,16 +38,39 @@ function App() {
   const [role, setRole] = useState<UserRole>(UserRole.STUDENT);
   const [regSchoolId, setRegSchoolId] = useState('');
 
+  // Notifications State
+  const [notifications, setNotifications] = useState<Notification[]>([
+    { id: '1', title: 'النظام', message: 'نظام الكنترول جاهز للعمل', type: 'INFO', time: 'الآن', read: false },
+  ]);
+
+  const addNotification = (note: Omit<Notification, 'id' | 'read'>) => {
+    const newNote: Notification = {
+      id: Date.now().toString(),
+      read: false,
+      ...note
+    };
+    setNotifications(prev => [newNote, ...prev]);
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (schoolId && username && password) {
       setIsLoggedIn(true);
-      // Logic for demo roles based on username
-      if (username.toLowerCase().includes('teacher')) setCurrentUserRole(UserRole.TEACHER);
-      else if (username.toLowerCase().includes('student')) setCurrentUserRole(UserRole.STUDENT);
-      else setCurrentUserRole(UserRole.ADMIN);
       
-      setCurrentSchoolName(MOCK_SCHOOL.name); // In real app, fetch from DB based on schoolId
+      // Role Simulation Logic based on Username for Demo
+      const u = username.toLowerCase();
+      if (u.includes('admin')) setCurrentUserRole(UserRole.ADMIN);
+      else if (u.includes('it')) setCurrentUserRole(UserRole.IT);
+      else if (u.includes('control')) setCurrentUserRole(UserRole.CONTROL);
+      else if (u.includes('teacher')) setCurrentUserRole(UserRole.TEACHER);
+      else if (u.includes('student')) setCurrentUserRole(UserRole.STUDENT);
+      else setCurrentUserRole(UserRole.ADMIN); // Default to Admin for testing if no match
+      
+      setCurrentSchoolName(MOCK_SCHOOL.name); 
+
+      // Set initial view based on role
+      if (u.includes('student')) setView('EXAMS');
+      else setView('DASHBOARD');
     }
   };
 
@@ -70,12 +95,19 @@ function App() {
     setPassword('');
   };
 
+  const handleDeleteSchool = () => {
+    // Only available to Admin inside UserManagement
+    alert('تم حذف الحساب المدرسي وجميع البيانات نهائياً.');
+    handleLogout();
+  };
+
   const handleLogout = () => {
     setIsLoggedIn(false);
     setSchoolId('');
     setUsername('');
     setPassword('');
     setAuthMode('LOGIN');
+    setView('DASHBOARD');
   };
 
   if (!isLoggedIn) {
@@ -116,7 +148,7 @@ function App() {
                     value={username}
                     onChange={e => setUsername(e.target.value)}
                     className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none transition-all"
-                    placeholder="Admin / Teacher / Student"
+                    placeholder="Admin / IT / Control / Teacher / Student"
                   />
                 </div>
 
@@ -203,7 +235,8 @@ function App() {
                              <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full bg-black/50 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none text-sm">
                                 <option value={UserRole.STUDENT}>طالب</option>
                                 <option value={UserRole.TEACHER}>معلم</option>
-                                <option value={UserRole.STAFF}>إداري</option>
+                                <option value={UserRole.CONTROL}>موظف كنترول</option>
+                                <option value={UserRole.IT}>مسؤول IT</option>
                              </select>
                           </div>
                        </div>
@@ -251,15 +284,18 @@ function App() {
       userRole={currentUserRole}
       onLogout={handleLogout}
       schoolName={currentSchoolName}
+      notifications={notifications}
     >
       {view === 'DASHBOARD' && <Dashboard />}
-      {view === 'USERS' && <UserManagement />}
+      {view === 'USERS' && <UserManagement currentUserRole={currentUserRole} onDeleteSchool={handleDeleteSchool} />}
+      {view === 'ATTENDANCE' && <Attendance onAddNotification={addNotification} />}
       {view === 'TEACHER_STATS' && <TeacherStats />}
       {view === 'SCHEDULE' && <Schedule />}
       {view === 'AI_GENERATOR' && <AIGenerator />}
       {view === 'EXAMS' && <ExamBuilder />}
-      {view === 'RESULTS' && <ResultsManager />}
+      {view === 'RESULTS' && <ResultsManager userRole={currentUserRole} />}
       {view === 'CERTIFICATES' && <Certificates />}
+      {view === 'STUDY_MATERIALS' && <StudyMaterials />}
       {view === 'SETTINGS' && <Settings />}
     </Layout>
   );

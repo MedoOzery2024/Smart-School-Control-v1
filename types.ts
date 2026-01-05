@@ -1,9 +1,10 @@
 export enum UserRole {
-  ADMIN = 'ADMIN', // مدير المدرسة
-  TEACHER = 'TEACHER', // معلم
-  STUDENT = 'STUDENT', // طالب
-  STAFF = 'STAFF', // إداري
-  IT = 'IT' // مسؤول تقني
+  ADMIN = 'ADMIN', // مدير المدرسة (صلاحيات كاملة + حذف المدرسة)
+  IT = 'IT', // مسؤول تقني (إدارة الحسابات وكلمات المرور)
+  CONTROL = 'CONTROL', // شؤون الكنترول (رصد درجات وشهادات)
+  TEACHER = 'TEACHER', // معلم (رفع مواد، امتحانات، جداول)
+  STUDENT = 'STUDENT', // طالب (عرض نتائج، حل امتحانات)
+  STAFF = 'STAFF' // موظف إداري عام
 }
 
 export enum SchoolStage {
@@ -26,8 +27,9 @@ export interface User {
   fullName: string;
   role: UserRole;
   schoolId: string;
-  stage?: SchoolStage; // For students/teachers
-  gradeLevel?: string; // e.g., "الصف الأول"
+  stage?: SchoolStage;
+  gradeLevel?: string;
+  password?: string; // For mock purposes of reset
 }
 
 export interface School {
@@ -35,6 +37,16 @@ export interface School {
   name: string;
   type: SchoolType;
   logoUrl?: string;
+}
+
+export interface StudyMaterial {
+  id: string;
+  title: string;
+  subject: string;
+  type: 'PDF' | 'IMAGE';
+  url: string; // Mock URL
+  uploadDate: string;
+  teacherId: string;
 }
 
 export interface Exam {
@@ -53,7 +65,7 @@ export interface Question {
   id: string;
   text: string;
   options: string[];
-  correctAnswer: number; // Index 0-3
+  correctAnswer: number;
   explanation: string;
   difficulty: 'EASY' | 'MEDIUM' | 'HARD';
 }
@@ -68,13 +80,13 @@ export interface StudentResult {
   status: 'PASS' | 'FAIL';
 }
 
-export interface ScheduleItem {
-  day: string;
-  period: number; // 1 to 8
-  subject: string;
-  teacherId: string;
-  startTime: string;
-  endTime: string;
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'INFO' | 'WARNING' | 'ALERT';
+  time: string;
+  read: boolean;
 }
 
 export type ViewState = 
@@ -82,9 +94,11 @@ export type ViewState =
   | 'DASHBOARD' 
   | 'USERS' 
   | 'SCHEDULE' 
+  | 'ATTENDANCE'
   | 'EXAMS' 
   | 'AI_GENERATOR' 
   | 'RESULTS' 
   | 'CERTIFICATES'
   | 'TEACHER_STATS'
+  | 'STUDY_MATERIALS' // New section
   | 'SETTINGS';

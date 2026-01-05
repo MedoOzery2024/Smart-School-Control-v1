@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Menu, X, LayoutDashboard, Users, Calendar, 
   FileText, GraduationCap, Award, BrainCircuit, LogOut,
-  Settings, BarChart2, Bell
+  Settings, BarChart2, Bell, BookOpen, CalendarCheck
 } from 'lucide-react';
 import { APP_NAME, DEVELOPER_NAME } from '../constants';
-import { ViewState, UserRole } from '../types';
+import { ViewState, UserRole, Notification } from '../types';
 import Logo from './Logo';
 
 interface LayoutProps {
@@ -15,18 +15,15 @@ interface LayoutProps {
   userRole: UserRole;
   onLogout: () => void;
   schoolName: string;
+  notifications: Notification[];
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, currentView, setView, userRole, onLogout, schoolName 
+  children, currentView, setView, userRole, onLogout, schoolName, notifications 
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [time, setTime] = useState(new Date());
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: 'غياب الطالب أحمد محمد (3 أيام متتالية)', time: 'منذ 10 دقائق', read: false },
-    { id: 2, text: 'تم اعتماد نتائج الصف الأول الإعدادي', time: 'منذ ساعة', read: false },
-  ]);
 
   // Clock Timer
   useEffect(() => {
@@ -41,16 +38,27 @@ const Layout: React.FC<LayoutProps> = ({
     day: 'numeric', month: 'long', year: 'numeric'
   }).format(time);
 
+  // Define Menu Items with Strict Role Access
   const navItems = [
-    { id: 'DASHBOARD', label: 'لوحة التحكم', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.STAFF] },
-    { id: 'USERS', label: 'إدارة المستخدمين', icon: Users, roles: [UserRole.ADMIN, UserRole.STAFF] },
+    // Admin View
+    { id: 'DASHBOARD', label: 'لوحة التحكم', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.IT] },
+    { id: 'USERS', label: 'إدارة المستخدمين', icon: Users, roles: [UserRole.ADMIN, UserRole.IT] },
+    { id: 'ATTENDANCE', label: 'الغياب والحضور', icon: CalendarCheck, roles: [UserRole.ADMIN, UserRole.TEACHER, UserRole.CONTROL] },
     { id: 'TEACHER_STATS', label: 'إحصائيات المعلمين', icon: BarChart2, roles: [UserRole.ADMIN] },
-    { id: 'SCHEDULE', label: 'الجداول المدرسية', icon: Calendar, roles: [UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT] },
-    { id: 'EXAMS', label: 'الامتحانات', icon: FileText, roles: [UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT] },
-    { id: 'RESULTS', label: 'رصد الدرجات', icon: GraduationCap, roles: [UserRole.ADMIN, UserRole.TEACHER] },
-    { id: 'CERTIFICATES', label: 'الشهادات', icon: Award, roles: [UserRole.ADMIN, UserRole.STUDENT] },
-    { id: 'AI_GENERATOR', label: 'الذكاء الاصطناعي', icon: BrainCircuit, roles: [UserRole.ADMIN, UserRole.TEACHER] },
     { id: 'SETTINGS', label: 'إعدادات المدرسة', icon: Settings, roles: [UserRole.ADMIN] },
+    
+    // Control View
+    { id: 'RESULTS', label: 'رصد الدرجات والكنترول', icon: GraduationCap, roles: [UserRole.ADMIN, UserRole.CONTROL] },
+    { id: 'CERTIFICATES', label: 'الشهادات المدرسية', icon: Award, roles: [UserRole.ADMIN, UserRole.CONTROL] },
+
+    // Teacher View
+    { id: 'STUDY_MATERIALS', label: 'المواد الدراسية (PDF/صور)', icon: BookOpen, roles: [UserRole.TEACHER, UserRole.ADMIN] },
+    { id: 'EXAMS', label: 'الامتحانات وبنك الأسئلة', icon: FileText, roles: [UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT] }, // Student sees exams to take them
+    { id: 'AI_GENERATOR', label: 'مولد الأسئلة الذكي', icon: BrainCircuit, roles: [UserRole.TEACHER, UserRole.ADMIN] },
+    { id: 'SCHEDULE', label: 'الجدول المدرسي', icon: Calendar, roles: [UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT] },
+
+    // Student Specific (Results view handled inside Results component, but they need access to the view)
+    { id: 'RESULTS', label: 'نتيجتي', icon: GraduationCap, roles: [UserRole.STUDENT] },
   ];
 
   return (
@@ -66,6 +74,7 @@ const Layout: React.FC<LayoutProps> = ({
              <div className="text-center animate-fadeIn flex flex-col items-center">
                <Logo size={48} className="mb-2" />
                <h1 className="text-sm font-bold text-gold-400">SSC Control</h1>
+               <span className="text-xs text-gray-500 uppercase">{userRole}</span>
              </div>
            ) : (
              <Logo size={32} />
@@ -75,7 +84,7 @@ const Layout: React.FC<LayoutProps> = ({
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-2 px-2">
             {navItems.filter(item => item.roles.includes(userRole)).map((item) => (
-              <li key={item.id}>
+              <li key={`${item.id}_${item.label}`}>
                 <button
                   onClick={() => setView(item.id as ViewState)}
                   className={`w-full flex items-center p-3 rounded-lg transition-colors duration-200 group
@@ -136,26 +145,25 @@ const Layout: React.FC<LayoutProps> = ({
               
               {showNotifications && (
                 <div className="absolute left-0 mt-2 w-80 bg-darkgray border border-gold-700/30 rounded-xl shadow-2xl overflow-hidden z-50">
-                  <div className="p-3 border-b border-gray-800 flex justify-between items-center">
+                  <div className="p-3 border-b border-gray-800 flex justify-between items-center bg-black/40">
                     <h3 className="font-bold text-white">الإشعارات</h3>
-                    <button 
-                      onClick={() => setNotifications(prev => prev.map(n => ({...n, read: true})))}
-                      className="text-xs text-gold-500 hover:text-gold-400"
-                    >
-                      تحديد الكل كمقروء
-                    </button>
+                    <span className="bg-gold-600 text-black text-xs px-2 py-0.5 rounded-full font-bold">{notifications.length}</span>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <p className="p-4 text-center text-gray-500 text-sm">لا توجد إشعارات جديدة</p>
-                    ) : (
-                      notifications.map(n => (
-                        <div key={n.id} className={`p-3 border-b border-gray-800 hover:bg-white/5 cursor-pointer ${!n.read ? 'bg-gold-500/5' : ''}`}>
-                          <p className="text-sm text-gray-200">{n.text}</p>
-                          <span className="text-xs text-gray-500 mt-1 block">{n.time}</span>
-                        </div>
-                      ))
-                    )}
+                      {notifications.length === 0 ? (
+                        <div className="p-6 text-center text-gray-500 text-sm">لا توجد إشعارات جديدة</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n.id} className={`p-3 border-b border-gray-800 hover:bg-white/5 cursor-pointer flex gap-3 ${!n.read ? 'bg-white/5' : ''}`}>
+                             <div className={`w-1 self-stretch rounded-full ${n.type === 'ALERT' ? 'bg-red-500' : n.type === 'WARNING' ? 'bg-yellow-500' : 'bg-blue-500'}`}></div>
+                             <div>
+                                <h4 className="text-sm font-bold text-gray-200">{n.title}</h4>
+                                <p className="text-xs text-gray-400 mt-1">{n.message}</p>
+                                <span className="text-[10px] text-gray-500 mt-2 block">{n.time}</span>
+                             </div>
+                          </div>
+                        ))
+                      )}
                   </div>
                 </div>
               )}
