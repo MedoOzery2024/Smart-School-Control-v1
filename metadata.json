@@ -1,0 +1,8 @@
+{
+  "name": "Smart School Control (SSC)",
+  "description": "نظام كنترول مدرسي ذكي شامل لإدارة المدارس والامتحانات والطلاب مدعوم بالذكاء الاصطناعي.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
