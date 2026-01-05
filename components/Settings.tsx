@@ -1,14 +1,127 @@
 import React, { useState } from 'react';
 import { SchoolType } from '../types';
-import { Settings as SettingsIcon, Save, School } from 'lucide-react';
+import { Settings as SettingsIcon, Save, School, Book, Globe, Languages, FlaskConical } from 'lucide-react';
 
 const Settings: React.FC = () => {
   const [schoolName, setSchoolName] = useState('مدرسة المستقبل الدولية');
   const [schoolType, setSchoolType] = useState<SchoolType>(SchoolType.INTERNATIONAL);
   const [managerName, setManagerName] = useState('أ. أحمد المدير');
 
+  // Specific settings state
+  const [secondLanguage, setSecondLanguage] = useState('French');
+  const [curriculumType, setCurriculumType] = useState('IGCSE');
+  const [experimentalLang, setExperimentalLang] = useState('English');
+
   const handleSave = () => {
     alert('تم حفظ إعدادات المدرسة بنجاح!');
+  };
+
+  const renderTypeSpecificSettings = () => {
+    switch (schoolType) {
+      case SchoolType.GOVERNMENT:
+        return (
+          <div className="bg-black/20 p-4 rounded-lg border border-gray-800 animate-fadeIn mt-4">
+            <h3 className="text-gold-500 font-bold mb-3 flex items-center gap-2">
+              <Book className="w-4 h-4" /> إعدادات المدارس الحكومية
+            </h3>
+            <div className="space-y-3">
+               <label className="flex items-center gap-2 cursor-pointer">
+                 <input type="checkbox" className="accent-gold-500" defaultChecked />
+                 <span className="text-sm text-gray-300">تطبيق لائحة الانضباط المدرسي الحكومية</span>
+               </label>
+               <label className="flex items-center gap-2 cursor-pointer">
+                 <input type="checkbox" className="accent-gold-500" defaultChecked />
+                 <span className="text-sm text-gray-300">تفعيل نظام التقييم الوطني</span>
+               </label>
+            </div>
+          </div>
+        );
+      case SchoolType.LANGUAGE:
+        return (
+           <div className="bg-black/20 p-4 rounded-lg border border-gray-800 animate-fadeIn mt-4">
+            <h3 className="text-gold-500 font-bold mb-3 flex items-center gap-2">
+              <Languages className="w-4 h-4" /> إعدادات مدارس اللغات
+            </h3>
+            <div className="space-y-3">
+               <div>
+                  <label className="block text-sm text-gray-400 mb-1">اللغة الأجنبية الثانية</label>
+                  <select 
+                    value={secondLanguage}
+                    onChange={(e) => setSecondLanguage(e.target.value)}
+                    className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white text-sm outline-none focus:border-gold-500"
+                  >
+                    <option value="French">الفرنسية (Français)</option>
+                    <option value="German">الألمانية (Deutsch)</option>
+                    <option value="Spanish">الأسبانية (Español)</option>
+                    <option value="Italian">الإيطالية (Italiano)</option>
+                  </select>
+               </div>
+               <label className="flex items-center gap-2 cursor-pointer">
+                 <input type="checkbox" className="accent-gold-500" defaultChecked />
+                 <span className="text-sm text-gray-300">تدريس الرياضيات والعلوم باللغة الإنجليزية</span>
+               </label>
+            </div>
+          </div>
+        );
+      case SchoolType.EXPERIMENTAL:
+        return (
+           <div className="bg-black/20 p-4 rounded-lg border border-gray-800 animate-fadeIn mt-4">
+            <h3 className="text-gold-500 font-bold mb-3 flex items-center gap-2">
+              <FlaskConical className="w-4 h-4" /> إعدادات المدارس التجريبية (رسمي لغات)
+            </h3>
+            <div className="space-y-3">
+               <div>
+                  <label className="block text-sm text-gray-400 mb-1">لغة التدريس للمواد العلمية</label>
+                  <select 
+                    value={experimentalLang}
+                    onChange={(e) => setExperimentalLang(e.target.value)}
+                    className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white text-sm outline-none focus:border-gold-500"
+                  >
+                    <option value="English">الإنجليزية</option>
+                    <option value="French">الفرنسية</option>
+                  </select>
+               </div>
+               <label className="flex items-center gap-2 cursor-pointer">
+                 <input type="checkbox" className="accent-gold-500" defaultChecked />
+                 <span className="text-sm text-gray-300">زيادة كثافة الفصول بنسبة 10% (استثنائي)</span>
+               </label>
+            </div>
+          </div>
+        );
+      case SchoolType.INTERNATIONAL:
+        return (
+           <div className="bg-black/20 p-4 rounded-lg border border-gray-800 animate-fadeIn mt-4">
+            <h3 className="text-gold-500 font-bold mb-3 flex items-center gap-2">
+              <Globe className="w-4 h-4" /> إعدادات المدارس الدولية
+            </h3>
+            <div className="space-y-3">
+               <div>
+                  <label className="block text-sm text-gray-400 mb-1">نظام الاعتماد (Curriculum)</label>
+                  <select 
+                    value={curriculumType}
+                    onChange={(e) => setCurriculumType(e.target.value)}
+                    className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white text-sm outline-none focus:border-gold-500"
+                  >
+                    <option value="IGCSE">النظام البريطاني (IGCSE)</option>
+                    <option value="SAT">النظام الأمريكي (American Diploma)</option>
+                    <option value="IB">البكالوريا الدولية (IB)</option>
+                    <option value="Canadian">النظام الكندي</option>
+                  </select>
+               </div>
+               <label className="flex items-center gap-2 cursor-pointer">
+                 <input type="checkbox" className="accent-gold-500" defaultChecked />
+                 <span className="text-sm text-gray-300">تفعيل حسابات GPA للطلاب</span>
+               </label>
+               <label className="flex items-center gap-2 cursor-pointer">
+                 <input type="checkbox" className="accent-gold-500" defaultChecked />
+                 <span className="text-sm text-gray-300">السماح بتعدد اللغات الاختيارية</span>
+               </label>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
@@ -19,7 +132,7 @@ const Settings: React.FC = () => {
         </div>
         <div>
           <h2 className="text-2xl font-bold text-white">إعدادات المدرسة</h2>
-          <p className="text-gray-400 text-sm">إدارة نوع المدرسة والبيانات الأساسية</p>
+          <p className="text-gray-400 text-sm">إدارة نوع المدرسة والبيانات الأساسية والخيارات الأكاديمية</p>
         </div>
       </div>
 
@@ -48,7 +161,7 @@ const Settings: React.FC = () => {
                >
                  <option value={SchoolType.GOVERNMENT}>حكومي</option>
                  <option value={SchoolType.LANGUAGE}>لغات</option>
-                 <option value={SchoolType.EXPERIMENTAL}>تجريبي</option>
+                 <option value={SchoolType.EXPERIMENTAL}>تجريبي (رسمي لغات)</option>
                  <option value={SchoolType.INTERNATIONAL}>انترناشونال</option>
                </select>
                <p className="text-xs text-gray-500 mt-1">
@@ -58,6 +171,9 @@ const Settings: React.FC = () => {
                  {schoolType === SchoolType.INTERNATIONAL && 'نظام التعليم الدولي (IG/American).'}
                </p>
              </div>
+
+             {/* Render Type Specific Settings Here */}
+             {renderTypeSpecificSettings()}
 
              <div>
                <label className="block text-sm font-medium text-gray-300 mb-1">اسم المدير المسئول</label>
@@ -80,7 +196,7 @@ const Settings: React.FC = () => {
              </div>
 
              <div>
-               <label className="block text-sm font-medium text-gray-300 mb-1">خيارات إضافية</label>
+               <label className="block text-sm font-medium text-gray-300 mb-1">خيارات عامة</label>
                <div className="bg-black/20 p-3 rounded-lg border border-gray-800 space-y-2">
                  <label className="flex items-center gap-2 cursor-pointer">
                    <input type="checkbox" className="accent-gold-500" defaultChecked />
@@ -89,6 +205,10 @@ const Settings: React.FC = () => {
                  <label className="flex items-center gap-2 cursor-pointer">
                    <input type="checkbox" className="accent-gold-500" defaultChecked />
                    <span className="text-sm text-gray-300">السماح لأولياء الأمور بالدخول</span>
+                 </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                   <input type="checkbox" className="accent-gold-500" defaultChecked />
+                   <span className="text-sm text-gray-300">تفعيل نظام الشهادات الرقمية</span>
                  </label>
                </div>
              </div>
