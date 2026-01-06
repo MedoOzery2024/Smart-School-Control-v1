@@ -19,8 +19,24 @@ import { LanguageProvider } from './LanguageContext';
 
 // Firebase Imports
 import { auth, db } from './firebaseConfig';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut,
+  deleteUser 
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  writeBatch, 
+  deleteDoc 
+} from 'firebase/firestore';
 
 function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -28,6 +44,7 @@ function AppContent() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ADMIN);
   const [currentSchoolName, setCurrentSchoolName] = useState(MOCK_SCHOOL.name);
   const [currentSchoolType, setCurrentSchoolType] = useState<SchoolType>(MOCK_SCHOOL.type);
+  const [currentSchoolId, setCurrentSchoolId] = useState('');
   const [currentFullName, setCurrentFullName] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -68,6 +85,7 @@ function AppContent() {
                     setCurrentSchoolName(userData.schoolName || 'Smart School');
                     setCurrentSchoolType(userData.schoolType || SchoolType.GOVERNMENT);
                     setCurrentFullName(userData.fullName || 'User');
+                    setCurrentSchoolId(userData.schoolId || '');
                 }
             } catch (e) {
                 console.error("Error fetching user data", e);
@@ -135,6 +153,7 @@ function AppContent() {
              userData.schoolType = newSchoolType;
              // Update local state immediately for better UX
              setCurrentSchoolName(newSchoolName);
+             setCurrentSchoolId(schoolId);
              alert(`تم إنشاء المدرسة! المعرف: ${schoolId}`);
         } else {
             userData.schoolId = regSchoolId;
@@ -154,9 +173,58 @@ function AppContent() {
     }
   };
 
-  const handleDeleteSchool = () => {
-    alert('تم حذف الحساب المدرسي وجميع البيانات نهائياً.');
-    handleLogout();
+  const handleDeleteSchool = async () => {
+    if (!auth || !auth.currentUser || !db) return;
+    
+    // Safety check handled by the Modal in UserManagement, but good to have a backup alert if called directly
+    setLoading(true);
+    
+    try {
+        const user = auth.currentUser;
+        
+        // 1. Delete All Users associated with this school (Firestore)
+        if (currentSchoolId) {
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("schoolId", "==", currentSchoolId));
+            const querySnapshot = await getDocs(q);
+            
+            // Batch delete for atomicity (up to 500 docs)
+            const batch = writeBatch(db);
+            querySnapshot.forEach((document) => {
+                batch.delete(document.ref);
+            });
+            
+            // Also delete files associated if possible (optional step, requires query)
+            // For now, focusing on users
+            
+            await batch.commit();
+        } else {
+             // Fallback: Delete just current user doc if schoolId missing
+             await deleteDoc(doc(db, "users", user.uid));
+        }
+
+        // 2. Delete the Authentication User
+        await deleteUser(user);
+
+        alert('تم حذف الحساب المدرسي وجميع المستخدمين المرتبطين به نهائياً.');
+        
+        // Reset Local State
+        setIsLoggedIn(false);
+        setEmail('');
+        setPassword('');
+        setAuthMode('LOGIN');
+        setView('DASHBOARD');
+        
+    } catch (error: any) {
+        console.error("Delete Error:", error);
+        if (error.code === 'auth/requires-recent-login') {
+            alert("لأسباب أمنية، يرجى تسجيل الخروج وتسجيل الدخول مرة أخرى لإتمام عملية حذف الحساب.");
+        } else {
+            alert("حدث خطأ أثناء حذف البيانات: " + error.message);
+        }
+    } finally {
+        setLoading(false);
+    }
   };
 
   const handleLogout = async () => {
