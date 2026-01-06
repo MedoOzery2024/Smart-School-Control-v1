@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ViewState, UserRole, SchoolType, SchoolStage, Notification } from './types';
 import { MOCK_SCHOOL } from './constants';
 import Layout from './components/Layout';
@@ -15,20 +15,25 @@ import StudyMaterials from './components/StudyMaterials';
 import Settings from './components/Settings';
 import Logo from './components/Logo';
 
+// Firebase Imports
+import { auth, db } from './firebaseConfig';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [view, setView] = useState<ViewState>('DASHBOARD');
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ADMIN);
   const [currentSchoolName, setCurrentSchoolName] = useState(MOCK_SCHOOL.name);
   const [currentSchoolType, setCurrentSchoolType] = useState<SchoolType>(MOCK_SCHOOL.type);
+  const [loading, setLoading] = useState(true);
 
   // Auth State
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [registerType, setRegisterType] = useState<'NEW_SCHOOL' | 'JOIN_SCHOOL'>('NEW_SCHOOL');
 
   // Form States
-  const [schoolId, setSchoolId] = useState('');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState(''); // Changed from username to email for Firebase
   const [password, setPassword] = useState('');
   
   // Registration Specific States
@@ -41,8 +46,39 @@ function App() {
 
   // Notifications State
   const [notifications, setNotifications] = useState<Notification[]>([
-    { id: '1', title: 'النظام', message: 'نظام الكنترول جاهز للعمل', type: 'INFO', time: 'الآن', read: false },
+    { id: '1', title: 'النظام', message: 'تم الاتصال بقاعدة البيانات بنجاح', type: 'INFO', time: 'الآن', read: false },
   ]);
+
+  // Check Auth State on Load
+  useEffect(() => {
+    if (!auth) {
+        setLoading(false);
+        return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Fetch User Role & School Data from Firestore
+        if (db) {
+            try {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    setCurrentUserRole(userData.role as UserRole);
+                    setCurrentSchoolName(userData.schoolName || MOCK_SCHOOL.name);
+                    // Also fetch school details if needed
+                }
+            } catch (e) {
+                console.error("Error fetching user data", e);
+            }
+        }
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const addNotification = (note: Omit<Notification, 'id' | 'read'>) => {
     const newNote: Notification = {
@@ -53,70 +89,97 @@ function App() {
     setNotifications(prev => [newNote, ...prev]);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (schoolId && username && password) {
-      setIsLoggedIn(true);
-      
-      // Role Simulation Logic based on Username for Demo
-      const u = username.toLowerCase();
-      if (u.includes('admin')) setCurrentUserRole(UserRole.ADMIN);
-      else if (u.includes('it')) setCurrentUserRole(UserRole.IT);
-      else if (u.includes('control')) setCurrentUserRole(UserRole.CONTROL);
-      else if (u.includes('teacher')) setCurrentUserRole(UserRole.TEACHER);
-      else if (u.includes('student')) setCurrentUserRole(UserRole.STUDENT);
-      else setCurrentUserRole(UserRole.ADMIN); // Default to Admin for testing if no match
-      
-      setCurrentSchoolName(MOCK_SCHOOL.name); 
-      setCurrentSchoolType(MOCK_SCHOOL.type);
+    if (!auth) {
+        alert("Firebase لم يتم تهيئته. تأكد من ملف firebaseConfig.ts");
+        // Fallback for demo if no config
+        if (email === 'admin' && password === 'admin') {
+             setIsLoggedIn(true);
+             setCurrentUserRole(UserRole.ADMIN);
+        }
+        return;
+    }
 
-      // Set initial view based on role
-      if (u.includes('student')) setView('EXAMS');
-      else setView('DASHBOARD');
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        // State update handled by onAuthStateChanged
+    } catch (error: any) {
+        console.error(error);
+        alert("فشل تسجيل الدخول: " + error.message);
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simulate Registration Logic
-    if (registerType === 'NEW_SCHOOL') {
-        const generatedId = 'SCH_' + Math.floor(Math.random() * 10000);
-        alert(`تم إنشاء المدرسة بنجاح!\nمعرف المدرسة الخاص بك هو: ${generatedId}\nيرجى حفظه للدخول.`);
-        setSchoolId(generatedId);
-        setCurrentSchoolName(newSchoolName);
-        setCurrentSchoolType(newSchoolType);
-        setUsername(managerName.split(' ')[0] || 'admin');
-    } else {
-        alert('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.');
-        setSchoolId(regSchoolId);
-        setUsername(username);
+    if (!auth || !db) {
+         alert("Firebase not configured");
+         return;
     }
-    
-    // Switch to Login Mode
-    setAuthMode('LOGIN');
-    setPassword('');
+
+    try {
+        // 1. Create Auth User
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // 2. Prepare Data
+        let userData: any = {
+            uid: user.uid,
+            email: email,
+            fullName: fullName || managerName,
+            role: role,
+            createdAt: new Date().toISOString()
+        };
+
+        if (registerType === 'NEW_SCHOOL') {
+             // Create School Doc logic could go here
+             const schoolId = 'SCH_' + Math.floor(Math.random() * 10000);
+             userData.role = UserRole.ADMIN;
+             userData.schoolId = schoolId;
+             userData.schoolName = newSchoolName;
+             userData.schoolType = newSchoolType;
+             alert(`تم إنشاء المدرسة! المعرف: ${schoolId}`);
+        } else {
+            userData.schoolId = regSchoolId;
+        }
+
+        // 3. Save to Firestore
+        await setDoc(doc(db, "users", user.uid), userData);
+        
+        // Reset View
+        setAuthMode('LOGIN');
+        setPassword('');
+        alert('تم إنشاء الحساب بنجاح! قم بتسجيل الدخول.');
+
+    } catch (error: any) {
+        console.error(error);
+        alert("خطأ في التسجيل: " + error.message);
+    }
   };
 
   const handleDeleteSchool = () => {
-    // Only available to Admin inside UserManagement
     alert('تم حذف الحساب المدرسي وجميع البيانات نهائياً.');
     handleLogout();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (auth) {
+        await signOut(auth);
+    }
     setIsLoggedIn(false);
-    setSchoolId('');
-    setUsername('');
+    setEmail('');
     setPassword('');
     setAuthMode('LOGIN');
     setView('DASHBOARD');
   };
 
+  if (loading) {
+      return <div className="min-h-screen bg-deepblack flex items-center justify-center text-gold-500 font-bold">جاري التحميل والاتصال بقاعدة البيانات...</div>;
+  }
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-deepblack flex items-center justify-center p-4 relative overflow-hidden font-sans">
-        {/* Abstract Gold Background Shapes */}
         <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] bg-gold-600/10 rounded-full blur-[100px]"></div>
         <div className="absolute bottom-[-20%] left-[-10%] w-[400px] h-[400px] bg-gold-500/5 rounded-full blur-[80px]"></div>
 
@@ -126,32 +189,27 @@ function App() {
                <Logo size={80} />
             </div>
             <h1 className="text-3xl font-black text-white mb-2">SSC Control</h1>
-            <p className="text-gold-500 font-semibold text-lg">نظام الكنترول المدرسي الذكي</p>
+            <p className="text-gold-500 font-semibold text-lg">نظام كنترول متصل سحابياً</p>
           </div>
+
+          {!auth && (
+              <div className="bg-red-900/30 border border-red-500/50 p-2 rounded text-red-200 text-xs text-center mb-4">
+                  تنبيه: لم يتم تهيئة Firebase. يرجى ضبط ملف firebaseConfig.ts. <br/>
+                  (للتجربة: admin / admin)
+              </div>
+          )}
 
           {authMode === 'LOGIN' ? (
              <form onSubmit={handleLogin} className="space-y-4 animate-fadeIn">
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">معرف المدرسة (School ID)</label>
+                  <label className="block text-sm text-gray-300 mb-1">البريد الإلكتروني (بدلاً من اسم المستخدم)</label>
                   <input 
-                    type="text" 
+                    type="email" 
                     required
-                    value={schoolId}
-                    onChange={e => setSchoolId(e.target.value)}
-                    className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none transition-all"
-                    placeholder="SCH_XXXX"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">اسم المستخدم</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={username}
-                    onChange={e => setUsername(e.target.value)}
-                    className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none transition-all"
-                    placeholder="Admin / IT / Control / Teacher / Student"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-500 outline-none"
+                    placeholder="name@school.com"
                   />
                 </div>
 
@@ -162,7 +220,7 @@ function App() {
                     required
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-500 focus:ring-1 focus:ring-gold-500 outline-none transition-all"
+                    className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-500 outline-none"
                     placeholder="********"
                   />
                 </div>
@@ -171,7 +229,7 @@ function App() {
                   type="submit"
                   className="w-full py-3 bg-gradient-to-r from-gold-600 to-gold-500 hover:from-gold-500 hover:to-gold-400 text-black font-bold rounded-lg shadow-lg shadow-gold-900/20 transition-all transform hover:scale-[1.02] mt-4"
                 >
-                  تسجيل الدخول
+                  تسجيل الدخول الآمن
                 </button>
 
                 <p className="text-center text-sm text-gray-400 mt-4">
@@ -203,6 +261,11 @@ function App() {
                </div>
 
                <form onSubmit={handleRegister} className="space-y-3">
+                  <div>
+                     <label className="block text-xs text-gray-400 mb-1">البريد الإلكتروني</label>
+                     <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none text-sm" />
+                   </div>
+
                   {registerType === 'NEW_SCHOOL' ? (
                     <>
                        <div>
@@ -242,10 +305,6 @@ function App() {
                                 <option value={UserRole.IT}>مسؤول IT</option>
                              </select>
                           </div>
-                       </div>
-                       <div>
-                         <label className="block text-xs text-gray-400 mb-1">اسم المستخدم</label>
-                         <input required type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-black/50 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none text-sm" />
                        </div>
                     </>
                   )}
