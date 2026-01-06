@@ -1,20 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Exam, SchoolStage } from '../types';
+import { db, auth } from '../firebaseConfig';
+import { collection, addDoc, getDoc, doc, query, where, onSnapshot } from 'firebase/firestore';
+import { Loader2, FileText } from 'lucide-react';
 
 const ExamBuilder: React.FC = () => {
-  // Mock Exam Data for UI
   const [examTitle, setExamTitle] = useState('');
   const [totalScore, setTotalScore] = useState(100);
+  const [saving, setSaving] = useState(false);
+  const [schoolId, setSchoolId] = useState('');
+  const [exams, setExams] = useState<any[]>([]);
 
-  const calculateGrade = (score: number, max: number) => {
-    const percent = (score / max) * 100;
-    let grade = 'راسب';
-    if (percent >= 85) grade = 'امتياز';
-    else if (percent >= 75) grade = 'جيد جداً';
-    else if (percent >= 65) grade = 'جيد';
-    else if (percent >= 50) grade = 'مقبول';
-    
-    return { percent: percent.toFixed(1), grade };
+  // 1. Get School ID
+  useEffect(() => {
+    const fetchSchool = async () => {
+      if (!auth?.currentUser || !db) return;
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setSchoolId(userDoc.data().schoolId);
+      }
+    };
+    fetchSchool();
+  }, []);
+
+  // 2. Fetch Exams
+  useEffect(() => {
+    if (!db || !schoolId) return;
+    const q = query(collection(db, "exams"), where("schoolId", "==", schoolId));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        setExams(snapshot.docs.map(d => ({id: d.id, ...d.data()})));
+    });
+    return () => unsubscribe();
+  }, [schoolId]);
+
+  const handleCreateExam = async () => {
+     if (!db || !schoolId || !examTitle) return;
+     setSaving(true);
+     try {
+         await addDoc(collection(db, "exams"), {
+             schoolId,
+             title: examTitle,
+             totalMarks: totalScore,
+             date: new Date().toISOString(),
+             teacherId: auth.currentUser?.uid
+         });
+         setExamTitle('');
+         alert("تم إنشاء الامتحان بنجاح");
+     } catch(e) {
+         console.error(e);
+         alert("خطأ أثناء الإنشاء");
+     } finally {
+         setSaving(false);
+     }
   };
 
   return (
@@ -30,6 +67,7 @@ const ExamBuilder: React.FC = () => {
               className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" 
               value={examTitle}
               onChange={e => setExamTitle(e.target.value)}
+              placeholder="مثال: اختبار شهر أكتوبر"
             />
           </div>
           <div className="flex gap-4">
@@ -48,12 +86,6 @@ const ExamBuilder: React.FC = () => {
                         setTotalScore(0);
                     }
                   }}
-                  onKeyDown={(e) => {
-                    // Prevent negative signs, plus signs, and scientific notation
-                    if (['-', '+', 'e', 'E'].includes(e.key)) {
-                        e.preventDefault();
-                    }
-                  }}
                 />
              </div>
              <div className="flex-1">
@@ -64,54 +96,34 @@ const ExamBuilder: React.FC = () => {
                 </select>
              </div>
           </div>
-          <button className="w-full bg-gold-600 text-black font-bold py-2 rounded hover:bg-gold-500 mt-4 transition-colors shadow-lg">
+          <button 
+             onClick={handleCreateExam}
+             disabled={saving || !examTitle}
+             className="w-full bg-gold-600 text-black font-bold py-2 rounded hover:bg-gold-500 mt-4 transition-colors shadow-lg flex justify-center gap-2 disabled:opacity-50"
+          >
+            {saving && <Loader2 className="animate-spin w-5 h-5" />}
             حفظ الامتحان
           </button>
         </div>
       </div>
 
-      {/* Grading Calculator Demo */}
+      {/* Exam List */}
       <div className="bg-darkgray p-6 rounded-xl border border-gold-700/20">
-        <h2 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">حاسبة الدرجات الفورية</h2>
-        <div className="space-y-4">
-           <div className="p-4 bg-black/20 rounded border border-gray-800">
-              <div className="flex justify-between items-center mb-2">
-                 <span>طالب: نموذج 1</span>
-                 <input 
-                   type="number" 
-                   placeholder="الدرجة" 
-                   className="w-20 bg-black border border-gray-600 rounded p-1 text-center text-white"
-                   defaultValue={88}
-                 />
-              </div>
-              <div className="flex justify-between text-sm text-gray-400 mt-2">
-                 <span>النسبة: 88%</span>
-                 <span className="text-green-400 font-bold">امتياز</span>
-              </div>
-              {/* Progress Bar */}
-              <div className="w-full bg-gray-800 h-2 rounded-full mt-2 overflow-hidden">
-                <div className="bg-green-500 h-full w-[88%]"></div>
-              </div>
-           </div>
-
-           <div className="p-4 bg-black/20 rounded border border-gray-800">
-              <div className="flex justify-between items-center mb-2">
-                 <span>طالب: نموذج 2</span>
-                 <input 
-                   type="number" 
-                   placeholder="الدرجة" 
-                   className="w-20 bg-black border border-gray-600 rounded p-1 text-center text-white"
-                   defaultValue={45}
-                 />
-              </div>
-              <div className="flex justify-between text-sm text-gray-400 mt-2">
-                 <span>النسبة: 45%</span>
-                 <span className="text-red-400 font-bold">راسب</span>
-              </div>
-              <div className="w-full bg-gray-800 h-2 rounded-full mt-2 overflow-hidden">
-                <div className="bg-red-500 h-full w-[45%]"></div>
-              </div>
-           </div>
+        <h2 className="text-xl font-bold text-white mb-4 border-b border-gray-700 pb-2">الامتحانات المسجلة</h2>
+        <div className="space-y-4 max-h-80 overflow-y-auto">
+            {exams.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">لا توجد امتحانات مسجلة</p>
+            ) : (
+                exams.map(exam => (
+                    <div key={exam.id} className="p-3 bg-black/20 rounded border border-gray-800 flex justify-between items-center">
+                        <div>
+                            <h4 className="text-white font-bold">{exam.title}</h4>
+                            <p className="text-xs text-gray-500">الدرجة: {exam.totalMarks}</p>
+                        </div>
+                        <FileText className="text-gold-500 w-5 h-5" />
+                    </div>
+                ))
+            )}
         </div>
       </div>
     </div>

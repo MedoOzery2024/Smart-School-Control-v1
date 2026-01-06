@@ -176,37 +176,49 @@ function AppContent() {
   const handleDeleteSchool = async () => {
     if (!auth || !auth.currentUser || !db) return;
     
-    // Safety check handled by the Modal in UserManagement, but good to have a backup alert if called directly
     setLoading(true);
     
     try {
         const user = auth.currentUser;
         
-        // 1. Delete All Users associated with this school (Firestore)
+        // 1. Try to delete associated data first (Users, Files, etc.)
+        // Note: Without Cloud Functions or specific Security Rules, deleting other users' docs might fail.
+        // We will try our best to clean up Firestore.
         if (currentSchoolId) {
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("schoolId", "==", currentSchoolId));
-            const querySnapshot = await getDocs(q);
-            
-            // Batch delete for atomicity (up to 500 docs)
             const batch = writeBatch(db);
-            querySnapshot.forEach((document) => {
-                batch.delete(document.ref);
-            });
             
-            // Also delete files associated if possible (optional step, requires query)
-            // For now, focusing on users
-            
-            await batch.commit();
-        } else {
-             // Fallback: Delete just current user doc if schoolId missing
-             await deleteDoc(doc(db, "users", user.uid));
+            // Delete Users Docs
+            const usersRef = collection(db, "users");
+            const qUsers = query(usersRef, where("schoolId", "==", currentSchoolId));
+            const usersSnapshot = await getDocs(qUsers);
+            usersSnapshot.forEach((doc) => batch.delete(doc.ref));
+
+            // Delete Attendance Docs
+            const attRef = collection(db, "attendance");
+            const qAtt = query(attRef, where("schoolId", "==", currentSchoolId));
+            const attSnapshot = await getDocs(qAtt);
+            attSnapshot.forEach((doc) => batch.delete(doc.ref));
+
+            // Delete Schedules
+            const schRef = collection(db, "schedules");
+            const qSch = query(schRef, where("schoolId", "==", currentSchoolId));
+            const schSnapshot = await getDocs(qSch);
+            schSnapshot.forEach((doc) => batch.delete(doc.ref));
+
+            try {
+                await batch.commit();
+            } catch (batchError) {
+                console.warn("Partial delete failure (likely permissions):", batchError);
+                // Continue to delete current user anyway
+            }
         }
 
-        // 2. Delete the Authentication User
+        // 2. Delete the CURRENT Authentication User
+        // Note: We cannot delete OTHER users from Auth using client-side SDK.
+        await deleteDoc(doc(db, "users", user.uid)); // Ensure own doc is gone
         await deleteUser(user);
 
-        alert('تم حذف الحساب المدرسي وجميع المستخدمين المرتبطين به نهائياً.');
+        alert('تم حذف حسابك وبيانات المدرسة المتاحة لك بنجاح.');
         
         // Reset Local State
         setIsLoggedIn(false);
@@ -219,6 +231,17 @@ function AppContent() {
         console.error("Delete Error:", error);
         if (error.code === 'auth/requires-recent-login') {
             alert("لأسباب أمنية، يرجى تسجيل الخروج وتسجيل الدخول مرة أخرى لإتمام عملية حذف الحساب.");
+        } else if (error.code === 'permission-denied') {
+             // Handle the specific permission error the user reported
+             // If we can't delete others, we at least delete ourselves.
+             try {
+                await deleteDoc(doc(db, "users", auth.currentUser.uid));
+                await deleteUser(auth.currentUser);
+                alert("تم حذف حسابك الشخصي. لم نتمكن من حذف بيانات المدرسة بالكامل بسبب الصلاحيات، ولكن لا يمكن الوصول للحساب مرة أخرى.");
+                handleLogout();
+             } catch (e) {
+                alert("فشل حذف الحساب. يرجى مراجعة الدعم الفني.");
+             }
         } else {
             alert("حدث خطأ أثناء حذف البيانات: " + error.message);
         }

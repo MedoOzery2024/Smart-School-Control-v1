@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, UserX, Clock, CalendarCheck, Search, Loader2 } from 'lucide-react';
-import { Notification, User } from '../types';
-import { db } from '../firebaseConfig';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { UserCheck, UserX, Clock, CalendarCheck, Search, Loader2, Save } from 'lucide-react';
+import { Notification } from '../types';
+import { db, auth } from '../firebaseConfig';
+import { collection, query, where, onSnapshot, doc, setDoc, getDocs, getDoc } from 'firebase/firestore';
 
 interface AttendanceProps {
   onAddNotification: (note: Omit<Notification, 'id' | 'read'>) => void;
@@ -13,16 +13,32 @@ const Attendance: React.FC<AttendanceProps> = ({ onAddNotification }) => {
   const [loading, setLoading] = useState(true);
   const [attendanceLog, setAttendanceLog] = useState<Record<string, 'PRESENT' | 'ABSENT' | 'LATE'>>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [schoolId, setSchoolId] = useState('');
 
-  // Fetch Students from Firestore
+  // 1. Get current school ID
   useEffect(() => {
-    if (!db) {
-        setLoading(false);
-        return;
-    }
+    const fetchSchoolId = async () => {
+      if (!auth?.currentUser || !db) return;
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setSchoolId(userDoc.data().schoolId);
+      }
+    };
+    fetchSchoolId();
+  }, []);
+
+  // 2. Fetch Students from Firestore
+  useEffect(() => {
+    if (!db || !schoolId) return;
     
-    // Query users where role is STUDENT
-    const q = query(collection(db, "users"), where("role", "==", "STUDENT"));
+    setLoading(true);
+    // Query users where role is STUDENT and match schoolId
+    const q = query(
+      collection(db, "users"), 
+      where("role", "==", "STUDENT"),
+      where("schoolId", "==", schoolId)
+    );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedStudents = snapshot.docs.map(doc => {
@@ -38,22 +54,60 @@ const Attendance: React.FC<AttendanceProps> = ({ onAddNotification }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [schoolId]);
 
-  const handleMark = (studentId: string, studentName: string, status: 'PRESENT' | 'ABSENT' | 'LATE') => {
+  // 3. Fetch Attendance for Selected Date
+  useEffect(() => {
+    if (!db || !schoolId || !selectedDate) return;
+    
+    const fetchAttendance = async () => {
+       const q = query(
+         collection(db, "attendance"),
+         where("schoolId", "==", schoolId),
+         where("date", "==", selectedDate)
+       );
+       
+       const snapshot = await getDocs(q);
+       const log: Record<string, 'PRESENT' | 'ABSENT' | 'LATE'> = {};
+       snapshot.forEach(doc => {
+           const data = doc.data();
+           log[data.studentId] = data.status;
+       });
+       setAttendanceLog(log);
+    };
+    
+    fetchAttendance();
+  }, [schoolId, selectedDate]);
+
+  const handleMark = async (studentId: string, studentName: string, status: 'PRESENT' | 'ABSENT' | 'LATE') => {
+    // Update local state for immediate feedback
     setAttendanceLog(prev => ({ ...prev, [studentId]: status }));
     
+    // Save to Firestore
+    if (db && schoolId) {
+       const docId = `${schoolId}_${selectedDate}_${studentId}`;
+       await setDoc(doc(db, "attendance", docId), {
+           schoolId,
+           date: selectedDate,
+           studentId,
+           studentName,
+           status,
+           timestamp: new Date().toISOString()
+       });
+    }
+
+    // Notifications (Local only for now)
     if (status === 'ABSENT') {
       onAddNotification({
         title: 'تنبيه غياب',
-        message: `تم تسجيل غياب الطالب ${studentName} اليوم.`,
+        message: `تم تسجيل غياب الطالب ${studentName} يوم ${selectedDate}.`,
         type: 'ALERT',
         time: new Date().toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})
       });
     } else if (status === 'LATE') {
        onAddNotification({
         title: 'تنبيه تأخير',
-        message: `تم تسجيل تأخير الطالب ${studentName} عن الطابور الصباحي.`,
+        message: `تم تسجيل تأخير الطالب ${studentName} عن الطابور.`,
         type: 'WARNING',
         time: new Date().toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})
       });
@@ -75,8 +129,8 @@ const Attendance: React.FC<AttendanceProps> = ({ onAddNotification }) => {
       </div>
 
       <div className="bg-darkgray p-6 rounded-xl border border-gold-700/20">
-         <div className="flex justify-between items-center mb-6">
-            <div className="relative w-64">
+         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div className="relative w-full md:w-64">
                <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-500" />
                <input 
                  type="text" 
@@ -86,8 +140,14 @@ const Attendance: React.FC<AttendanceProps> = ({ onAddNotification }) => {
                  className="w-full bg-black/40 border border-gray-700 rounded-full px-10 py-2 text-white outline-none focus:border-gold-500"
                />
             </div>
-            <div className="text-gray-400 text-sm">
-               تاريخ اليوم: <span className="text-gold-500 font-bold">{new Date().toLocaleDateString('ar-EG')}</span>
+            <div className="flex items-center gap-2">
+               <span className="text-gray-400 text-sm">التاريخ:</span>
+               <input 
+                 type="date" 
+                 value={selectedDate}
+                 onChange={(e) => setSelectedDate(e.target.value)}
+                 className="bg-black/40 border border-gray-700 rounded p-2 text-white outline-none focus:border-gold-500"
+               />
             </div>
          </div>
 

@@ -1,21 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WEEK_DAYS, PERIODS, SUBJECTS } from '../constants';
+import { db, auth } from '../firebaseConfig';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { Save, Loader2 } from 'lucide-react';
 
 const Schedule: React.FC = () => {
   const [selectedStage, setSelectedStage] = useState('PRIMARY');
-  // Simple state to simulate schedule data
   const [scheduleData, setScheduleData] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [schoolId, setSchoolId] = useState('');
+
+  // 1. Get School ID
+  useEffect(() => {
+    const fetchSchool = async () => {
+      if (!auth?.currentUser || !db) return;
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (userDoc.exists()) {
+        setSchoolId(userDoc.data().schoolId);
+      }
+    };
+    fetchSchool();
+  }, []);
+
+  // 2. Load Schedule from Firestore
+  useEffect(() => {
+    if (!db || !schoolId) return;
+    setLoading(true);
+    
+    const docId = `schedule_${schoolId}_${selectedStage}`;
+    const unsubscribe = onSnapshot(doc(db, "schedules", docId), (doc) => {
+        if (doc.exists()) {
+            setScheduleData(doc.data().data || {});
+        } else {
+            setScheduleData({});
+        }
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [schoolId, selectedStage]);
 
   const handleCellClick = (dayIdx: number, periodIdx: number) => {
     const key = `${dayIdx}-${periodIdx}`;
-    // Simple toggle for demo or prompt
-    const subject = prompt("أدخل اسم المادة:", "لغة عربية");
-    if (subject) {
+    const subject = prompt("أدخل اسم المادة:", scheduleData[key] || "لغة عربية");
+    
+    if (subject !== null) {
         setScheduleData(prev => ({
           ...prev,
           [key]: subject
         }));
     }
+  };
+
+  const handleSave = async () => {
+      if (!db || !schoolId) return;
+      setSaving(true);
+      try {
+          const docId = `schedule_${schoolId}_${selectedStage}`;
+          await setDoc(doc(db, "schedules", docId), {
+              schoolId,
+              stage: selectedStage,
+              data: scheduleData,
+              updatedAt: new Date().toISOString()
+          });
+          alert("تم حفظ الجدول بنجاح");
+      } catch (e) {
+          console.error(e);
+          alert("حدث خطأ أثناء الحفظ");
+      } finally {
+          setSaving(false);
+      }
   };
 
   return (
@@ -33,13 +88,23 @@ const Schedule: React.FC = () => {
              <option value="PREP">الإعدادية</option>
              <option value="SECONDARY">الثانوية</option>
            </select>
-           <button className="bg-gold-600 hover:bg-gold-500 text-black font-bold px-4 py-2 rounded">
-             توزيع تلقائي (AI)
+           <button 
+             onClick={handleSave}
+             disabled={saving}
+             className="bg-gold-600 hover:bg-gold-500 text-black font-bold px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50"
+           >
+             {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <Save className="w-4 h-4" />}
+             حفظ الجدول
            </button>
         </div>
       </div>
 
-      <div className="overflow-x-auto bg-darkgray rounded-xl border border-gold-700/20 shadow-xl">
+      <div className="overflow-x-auto bg-darkgray rounded-xl border border-gold-700/20 shadow-xl relative">
+        {loading && (
+            <div className="absolute inset-0 bg-black/50 z-10 flex items-center justify-center">
+                <Loader2 className="animate-spin text-gold-500 w-10 h-10" />
+            </div>
+        )}
         <table className="w-full text-center border-collapse">
           <thead>
             <tr>
