@@ -1,31 +1,39 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
 
-// TODO: Replace the following with your app's Firebase project configuration
-// You can find these in the Firebase Console -> Project Settings -> General -> Your Apps
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef123456"
+  apiKey: "AIzaSyDCUxFDjQK1fDuFV0xTKrmopqOpIpzfjXw",
+  authDomain: "smartschoolcontrolv1.firebaseapp.com",
+  projectId: "smartschoolcontrolv1",
+  storageBucket: "smartschoolcontrolv1.firebasestorage.app",
+  messagingSenderId: "74188091002",
+  appId: "1:74188091002:web:0db504bb7053c2dcd495c3",
+  measurementId: "G-PJRQFTS344"
 };
 
 // Initialize Firebase
-// We wrap this in a try-catch to prevent the app from crashing if config is missing in dev
 let app;
 let auth;
 let db;
+let analytics;
 
 try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
+  
+  // Initialize Analytics if supported in the environment
+  if (typeof window !== 'undefined') {
+     analytics = getAnalytics(app);
+  }
+  
   console.log("Firebase initialized successfully");
 } catch (error) {
-  console.warn("Firebase initialization failed. Please check your firebaseConfig.ts file.", error);
+  console.warn("Firebase initialization failed:", error);
 }
 
-export { auth, db };
+// Export the instances so they can be used in other files
+export { auth, db, analytics };
