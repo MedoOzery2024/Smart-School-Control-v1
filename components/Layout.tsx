@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   Menu, X, LayoutDashboard, Users, Calendar, 
   FileText, GraduationCap, Award, BrainCircuit, LogOut,
-  Settings, BarChart2, Bell, BookOpen, CalendarCheck
+  Settings, BarChart2, Bell, BookOpen, CalendarCheck, Globe
 } from 'lucide-react';
 import { APP_NAME, DEVELOPER_NAME } from '../constants';
 import { ViewState, UserRole, Notification } from '../types';
 import Logo from './Logo';
+import { useLanguage } from '../LanguageContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -24,6 +25,7 @@ const Layout: React.FC<LayoutProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [time, setTime] = useState(new Date());
   const [showNotifications, setShowNotifications] = useState(false);
+  const { language, setLanguage, t, isRTL } = useLanguage();
 
   // Clock Timer
   useEffect(() => {
@@ -32,42 +34,44 @@ const Layout: React.FC<LayoutProps> = ({
   }, []);
 
   // Format Date & Time
-  const timeString = time.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-  const dateStringGregorian = time.toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const dateStringHijri = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura', {
-    day: 'numeric', month: 'long', year: 'numeric'
-  }).format(time);
-
-  // Define Menu Items with Strict Role Access
+  const locale = language === 'ar' ? 'ar-EG' : 'en-US';
+  const timeString = time.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const dateStringGregorian = time.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  
+  // Define Menu Items with Strict Role Access and Translation
   const navItems = [
     // Admin View
-    { id: 'DASHBOARD', label: 'لوحة التحكم', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.IT] },
-    { id: 'USERS', label: 'إدارة المستخدمين', icon: Users, roles: [UserRole.ADMIN, UserRole.IT] },
-    { id: 'ATTENDANCE', label: 'الغياب والحضور', icon: CalendarCheck, roles: [UserRole.ADMIN, UserRole.TEACHER, UserRole.CONTROL] },
-    { id: 'TEACHER_STATS', label: 'إحصائيات المعلمين', icon: BarChart2, roles: [UserRole.ADMIN] },
-    { id: 'SETTINGS', label: 'إعدادات المدرسة', icon: Settings, roles: [UserRole.ADMIN] },
+    { id: 'DASHBOARD', label: t('dashboard'), icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.IT, UserRole.TEACHER] },
+    { id: 'USERS', label: t('users'), icon: Users, roles: [UserRole.ADMIN, UserRole.IT] },
+    { id: 'ATTENDANCE', label: t('attendance'), icon: CalendarCheck, roles: [UserRole.ADMIN, UserRole.TEACHER, UserRole.CONTROL] },
+    { id: 'TEACHER_STATS', label: t('teacherStats'), icon: BarChart2, roles: [UserRole.ADMIN] },
+    { id: 'SETTINGS', label: t('settings'), icon: Settings, roles: [UserRole.ADMIN, UserRole.STUDENT] }, // Student can see setting for notifications
     
     // Control View
-    { id: 'RESULTS', label: 'رصد الدرجات والكنترول', icon: GraduationCap, roles: [UserRole.ADMIN, UserRole.CONTROL] },
-    { id: 'CERTIFICATES', label: 'الشهادات المدرسية', icon: Award, roles: [UserRole.ADMIN, UserRole.CONTROL] },
+    { id: 'RESULTS', label: t('control'), icon: GraduationCap, roles: [UserRole.ADMIN, UserRole.CONTROL] },
+    { id: 'CERTIFICATES', label: t('certificates'), icon: Award, roles: [UserRole.ADMIN, UserRole.CONTROL] },
 
     // Teacher View
-    { id: 'STUDY_MATERIALS', label: 'المواد الدراسية (PDF/صور)', icon: BookOpen, roles: [UserRole.TEACHER, UserRole.ADMIN] },
-    { id: 'EXAMS', label: 'الامتحانات وبنك الأسئلة', icon: FileText, roles: [UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT] }, // Student sees exams to take them
-    { id: 'AI_GENERATOR', label: 'مولد الأسئلة الذكي', icon: BrainCircuit, roles: [UserRole.TEACHER, UserRole.ADMIN] },
-    { id: 'SCHEDULE', label: 'الجدول المدرسي', icon: Calendar, roles: [UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT] },
+    { id: 'STUDY_MATERIALS', label: t('materials'), icon: BookOpen, roles: [UserRole.TEACHER, UserRole.ADMIN] },
+    { id: 'EXAMS', label: t('exams'), icon: FileText, roles: [UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT] }, // Student sees exams to take them
+    { id: 'AI_GENERATOR', label: t('aiGenerator'), icon: BrainCircuit, roles: [UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT] }, // Student for quiz mode
+    { id: 'SCHEDULE', label: t('schedule'), icon: Calendar, roles: [UserRole.TEACHER, UserRole.ADMIN, UserRole.STUDENT] },
 
     // Student Specific (Results view handled inside Results component, but they need access to the view)
-    { id: 'RESULTS', label: 'نتيجتي', icon: GraduationCap, roles: [UserRole.STUDENT] },
+    { id: 'RESULTS', label: t('myResults'), icon: GraduationCap, roles: [UserRole.STUDENT] },
   ];
+
+  const toggleLanguage = () => {
+    setLanguage(language === 'ar' ? 'en' : 'ar');
+  };
 
   return (
     <div className="min-h-screen bg-deepblack text-gray-100 flex overflow-hidden">
       
       {/* Sidebar */}
       <aside 
-        className={`bg-darkgray border-l border-gold-700/30 transition-all duration-300 flex flex-col z-20
-        ${isSidebarOpen ? 'w-64' : 'w-20'} fixed h-full md:relative`}
+        className={`bg-darkgray border-r border-gold-700/30 transition-all duration-300 flex flex-col z-20
+        ${isSidebarOpen ? 'w-64' : 'w-20'} fixed h-full md:relative ${isRTL ? 'border-l' : 'border-r'}`}
       >
         <div className="h-24 flex items-center justify-center border-b border-gold-700/30">
            {isSidebarOpen ? (
@@ -93,7 +97,7 @@ const Layout: React.FC<LayoutProps> = ({
                       : 'text-gray-400 hover:bg-white/5 hover:text-gold-200'}
                   `}
                 >
-                  <item.icon className={`w-6 h-6 ${isSidebarOpen ? 'ml-3' : 'mx-auto'}`} />
+                  <item.icon className={`w-6 h-6 ${isSidebarOpen ? (isRTL ? 'ml-3' : 'mr-3') : 'mx-auto'}`} />
                   {isSidebarOpen && <span className="font-medium">{item.label}</span>}
                 </button>
               </li>
@@ -107,7 +111,7 @@ const Layout: React.FC<LayoutProps> = ({
             className="w-full flex items-center justify-center p-2 rounded-lg text-red-400 hover:bg-red-900/20 transition-colors"
           >
             <LogOut className="w-6 h-6" />
-            {isSidebarOpen && <span className="mr-2">تسجيل خروج</span>}
+            {isSidebarOpen && <span className={`mr-2 ${isRTL ? 'mr-2' : 'ml-2'}`}>{t('logout')}</span>}
           </button>
         </div>
       </aside>
@@ -131,6 +135,16 @@ const Layout: React.FC<LayoutProps> = ({
 
           <div className="flex items-center gap-4 md:gap-6">
             
+            {/* Language Toggle */}
+            <button 
+              onClick={toggleLanguage}
+              className="p-2 rounded-full hover:bg-white/5 text-gray-300 transition-colors flex items-center gap-1"
+              title={t('selectLanguage')}
+            >
+               <Globe className="w-5 h-5" />
+               <span className="text-xs font-bold">{language.toUpperCase()}</span>
+            </button>
+
             {/* Notifications */}
             <div className="relative">
               <button 
@@ -144,14 +158,14 @@ const Layout: React.FC<LayoutProps> = ({
               </button>
               
               {showNotifications && (
-                <div className="absolute left-0 mt-2 w-80 bg-darkgray border border-gold-700/30 rounded-xl shadow-2xl overflow-hidden z-50">
+                <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-80 bg-darkgray border border-gold-700/30 rounded-xl shadow-2xl overflow-hidden z-50`}>
                   <div className="p-3 border-b border-gray-800 flex justify-between items-center bg-black/40">
-                    <h3 className="font-bold text-white">الإشعارات</h3>
+                    <h3 className="font-bold text-white">{t('notifications')}</h3>
                     <span className="bg-gold-600 text-black text-xs px-2 py-0.5 rounded-full font-bold">{notifications.length}</span>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
                       {notifications.length === 0 ? (
-                        <div className="p-6 text-center text-gray-500 text-sm">لا توجد إشعارات جديدة</div>
+                        <div className="p-6 text-center text-gray-500 text-sm">No new notifications</div>
                       ) : (
                         notifications.map(n => (
                           <div key={n.id} className={`p-3 border-b border-gray-800 hover:bg-white/5 cursor-pointer flex gap-3 ${!n.read ? 'bg-white/5' : ''}`}>
@@ -179,15 +193,6 @@ const Layout: React.FC<LayoutProps> = ({
                   {dateStringGregorian}
                 </div>
               </div>
-              <div className="hidden md:block h-8 w-px bg-gold-700/30"></div>
-              <div className="text-right hidden md:block">
-                <div className="text-gray-300 font-semibold">
-                  {dateStringHijri}
-                </div>
-                <div className="text-xs text-gold-600">
-                  التقويم الهجري
-                </div>
-              </div>
             </div>
           </div>
         </header>
@@ -199,7 +204,7 @@ const Layout: React.FC<LayoutProps> = ({
 
         {/* Footer */}
         <footer className="absolute bottom-0 w-full h-12 bg-black border-t border-gold-900/50 flex items-center justify-center text-xs text-gray-500 z-10">
-          <p>مطور الموقع: <span className="text-gold-600 font-bold">{DEVELOPER_NAME}</span> &copy; {new Date().getFullYear()}</p>
+          <p>Developed by: <span className="text-gold-600 font-bold">{DEVELOPER_NAME}</span> &copy; {new Date().getFullYear()}</p>
         </footer>
 
       </main>

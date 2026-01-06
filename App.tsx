@@ -14,13 +14,14 @@ import TeacherStats from './components/TeacherStats';
 import StudyMaterials from './components/StudyMaterials';
 import Settings from './components/Settings';
 import Logo from './components/Logo';
+import { LanguageProvider } from './LanguageContext';
 
 // Firebase Imports
 import { auth, db } from './firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-function App() {
+function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [view, setView] = useState<ViewState>('DASHBOARD');
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ADMIN);
@@ -33,7 +34,7 @@ function App() {
   const [registerType, setRegisterType] = useState<'NEW_SCHOOL' | 'JOIN_SCHOOL'>('NEW_SCHOOL');
 
   // Form States
-  const [email, setEmail] = useState(''); // Changed from username to email for Firebase
+  const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState('');
   
   // Registration Specific States
@@ -348,7 +349,8 @@ function App() {
       schoolName={currentSchoolName}
       notifications={notifications}
     >
-      {view === 'DASHBOARD' && <Dashboard />}
+      {/* Pass role to Dashboard for personalized view */}
+      {view === 'DASHBOARD' && <Dashboard role={currentUserRole} />}
       {view === 'USERS' && <UserManagement currentUserRole={currentUserRole} schoolType={currentSchoolType} onDeleteSchool={handleDeleteSchool} />}
       {view === 'ATTENDANCE' && <Attendance onAddNotification={addNotification} />}
       {view === 'TEACHER_STATS' && <TeacherStats />}
@@ -358,9 +360,16 @@ function App() {
       {view === 'RESULTS' && <ResultsManager userRole={currentUserRole} />}
       {view === 'CERTIFICATES' && <Certificates />}
       {view === 'STUDY_MATERIALS' && <StudyMaterials />}
-      {view === 'SETTINGS' && <Settings />}
+      {view === 'SETTINGS' && <Settings userRole={currentUserRole} />}
     </Layout>
   );
 }
 
-export default App;
+// Wrap App in LanguageProvider
+export default function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
+  );
+}

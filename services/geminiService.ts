@@ -1,6 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question } from '../types';
 
+// Initialize the client strictly according to the guidelines
+// The API key is obtained exclusively from process.env.API_KEY
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 // Schema for Question Generation
@@ -30,8 +32,10 @@ export const generateQuestionsAI = async (
   difficulty: string
 ): Promise<Question[]> => {
   
+  // Check if API key is present (client-side check strictly for fallback logic)
   if (!process.env.API_KEY) {
-    console.warn("API Key missing, returning mock data for demo.");
+    console.warn("API Key is missing in environment variables. Using Mock Data.");
+    alert("تنبيه: مفتاح الذكاء الاصطناعي غير مضبوط في إعدادات Vercel. يتم عرض بيانات تجريبية.");
     return mockQuestions(count);
   }
 
@@ -42,20 +46,26 @@ export const generateQuestionsAI = async (
       مستوى الصعوبة: ${difficulty}.
       اللغة: العربية.
       يجب أن يكون لكل سؤال 4 خيارات.
+      تأكد أن الأسئلة متنوعة وشاملة للموضوع.
     `;
 
+    // Using 'gemini-3-flash-preview' as recommended for basic text tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-latest',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: questionSchema,
-        thinkingConfig: { thinkingBudget: 0 } // Disable thinking for faster generation
+        // thinkingBudget is set to 0 to disable thinking for faster generation on Flash model
+        thinkingConfig: { thinkingBudget: 0 } 
       }
     });
 
     const rawData = response.text;
-    if (!rawData) throw new Error("No data returned from AI");
+    
+    if (!rawData) {
+      throw new Error("No data returned from AI");
+    }
     
     const parsedData = JSON.parse(rawData);
     
@@ -67,7 +77,8 @@ export const generateQuestionsAI = async (
 
   } catch (error) {
     console.error("AI Generation Error:", error);
-    // Fallback to mock data on error or no key
+    alert("حدث خطأ أثناء الاتصال بالذكاء الاصطناعي. سيتم عرض بيانات تجريبية.");
+    // Fallback to mock data on error
     return mockQuestions(count);
   }
 };
@@ -75,17 +86,17 @@ export const generateQuestionsAI = async (
 const mockQuestions = (count: number): Question[] => {
   return Array.from({ length: count }).map((_, i) => ({
     id: `mock_${i}`,
-    text: `سؤال تجريبي ${i + 1} عن الموضوع المحدد؟`,
-    options: ['إجابة أ', 'إجابة ب', 'إجابة ج', 'إجابة د'],
+    text: `سؤال تجريبي ${i + 1} (الخدمة غير متصلة): ما هي عاصمة مصر؟`,
+    options: ['القاهرة', 'الإسكندرية', 'الجيزة', 'أسوان'],
     correctAnswer: 0,
-    explanation: 'هذا شرح تجريبي للإجابة الصحيحة.',
-    difficulty: 'MEDIUM'
+    explanation: 'هذا سؤال تجريبي يظهر لأن مفتاح API غير موجود أو حدث خطأ.',
+    difficulty: 'EASY'
   }));
 };
 
 export const analyzeCertificateAI = async (base64Image: string): Promise<any> => {
   // Simulate certificate analysis
-  // In a real implementation, we would send the image to Gemini 2.5 Flash
+  // Future upgrade: Use 'gemini-2.5-flash-image' for image analysis
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({
