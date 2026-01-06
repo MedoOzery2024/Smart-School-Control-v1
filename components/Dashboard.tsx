@@ -6,10 +6,11 @@ import { Users, GraduationCap, School, BookOpen, Clock, AlertCircle } from 'luci
 import { UserRole } from '../types';
 import { useLanguage } from '../LanguageContext';
 
-const data = [
-  { name: 'Primary', passed: 400, failed: 24, avg: 85 },
-  { name: 'Prep', passed: 300, failed: 45, avg: 78 },
-  { name: 'Secondary', passed: 200, failed: 30, avg: 82 },
+// Default empty data
+const emptyData = [
+  { name: 'Primary', passed: 0, failed: 0, avg: 0 },
+  { name: 'Prep', passed: 0, failed: 0, avg: 0 },
+  { name: 'Secondary', passed: 0, failed: 0, avg: 0 },
 ];
 
 const COLORS = ['#CA8A04', '#A16207', '#EAB308'];
@@ -42,52 +43,25 @@ const Dashboard: React.FC<{ role?: UserRole }> = ({ role }) => {
            </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-             <StatCard title={t('myClasses')} value="5" icon={Clock} sub="Next: Math 101" />
-             <StatCard title={t('totalStudents')} value="125" icon={Users} sub="Across 3 grades" />
-             <StatCard title={t('pendingGrading')} value="12" icon={AlertCircle} sub="Assignments" />
-             <StatCard title={t('activeExams')} value="2" icon={BookOpen} sub="Closing today" />
+             <StatCard title={t('myClasses')} value="0" icon={Clock} sub="No classes" />
+             <StatCard title={t('totalStudents')} value="0" icon={Users} sub="Total" />
+             <StatCard title={t('pendingGrading')} value="0" icon={AlertCircle} sub="Assignments" />
+             <StatCard title={t('activeExams')} value="0" icon={BookOpen} sub="Active" />
            </div>
 
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Upcoming Classes Widget */}
-              <div className="bg-darkgray p-6 rounded-xl border border-gold-700/20">
-                 <h3 className="text-lg font-bold text-white mb-4">{t('myClasses')}</h3>
-                 <div className="space-y-3">
-                    {[
-                       { time: '08:00 AM', subject: 'Mathematics', grade: 'Grade 10-A', room: 'Room 101' },
-                       { time: '09:30 AM', subject: 'Algebra', grade: 'Grade 11-B', room: 'Lab 2' },
-                       { time: '11:00 AM', subject: 'Geometry', grade: 'Grade 9-C', room: 'Room 104' },
-                    ].map((cls, idx) => (
-                       <div key={idx} className="flex items-center p-3 bg-black/30 rounded-lg border-l-4 border-gold-500">
-                          <div className="w-20 font-mono text-gold-400 text-sm font-bold">{cls.time}</div>
-                          <div className="flex-1 px-4">
-                             <div className="text-white font-bold">{cls.subject}</div>
-                             <div className="text-xs text-gray-500">{cls.grade}</div>
-                          </div>
-                          <div className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300">{cls.room}</div>
-                       </div>
-                    ))}
+              <div className="bg-darkgray p-6 rounded-xl border border-gold-700/20 flex items-center justify-center">
+                 <div className="text-center text-gray-500">
+                    <Clock className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                    <p>No upcoming classes scheduled</p>
                  </div>
               </div>
 
               {/* Student Performance Widget */}
-              <div className="bg-darkgray p-6 rounded-xl border border-gold-700/20">
-                 <h3 className="text-lg font-bold text-white mb-4">{t('studentPerformance')}</h3>
-                 <div className="h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                       <BarChart data={[
-                          { name: 'Week 1', avg: 75 },
-                          { name: 'Week 2', avg: 82 },
-                          { name: 'Week 3', avg: 78 },
-                          { name: 'Week 4', avg: 88 },
-                       ]}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                          <XAxis dataKey="name" stroke="#666" />
-                          <YAxis stroke="#666" domain={[0, 100]} />
-                          <RechartsTooltip contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }} />
-                          <Bar dataKey="avg" fill="#EAB308" radius={[4, 4, 0, 0]} />
-                       </BarChart>
-                    </ResponsiveContainer>
+              <div className="bg-darkgray p-6 rounded-xl border border-gold-700/20 flex items-center justify-center">
+                 <div className="text-center text-gray-500">
+                    <p>No performance data available</p>
                  </div>
               </div>
            </div>
@@ -99,58 +73,26 @@ const Dashboard: React.FC<{ role?: UserRole }> = ({ role }) => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title={t('totalStudents')} value="1,250" icon={Users} sub="+50 New" />
-        <StatCard title={t('teacherStats')} value="84" icon={GraduationCap} sub="All Depts" />
-        <StatCard title="Classrooms" value="42" icon={School} sub="90% Occupancy" />
-        <StatCard title={t('activeExams')} value="12" icon={BookOpen} sub="Today" />
+        <StatCard title={t('totalStudents')} value="0" icon={Users} sub="+0 New" />
+        <StatCard title={t('teacherStats')} value="0" icon={GraduationCap} sub="Staff" />
+        <StatCard title="Classrooms" value="0" icon={School} sub="Occupancy" />
+        <StatCard title={t('activeExams')} value="0" icon={BookOpen} sub="Today" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pass Rate Chart */}
         <div className="bg-darkgray p-6 rounded-xl border border-gold-700/20">
           <h3 className="text-lg font-bold text-white mb-6">Student Results Analysis</h3>
-          <div className="h-80 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                <XAxis dataKey="name" stroke="#666" />
-                <YAxis stroke="#666" />
-                <RechartsTooltip 
-                  contentStyle={{ backgroundColor: '#171717', border: '1px solid #333' }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Legend />
-                <Bar dataKey="passed" name={t('pass')} fill="#EAB308" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="failed" name={t('fail')} fill="#ef4444" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-80 w-full flex items-center justify-center text-gray-500">
+              No data available to display chart.
           </div>
         </div>
 
         {/* Distribution Chart */}
         <div className="bg-darkgray p-6 rounded-xl border border-gold-700/20">
           <h3 className="text-lg font-bold text-white mb-6">Student Distribution</h3>
-          <div className="h-80 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="passed"
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <RechartsTooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="h-80 w-full flex items-center justify-center text-gray-500">
+              No data available.
           </div>
         </div>
       </div>

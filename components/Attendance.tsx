@@ -1,23 +1,44 @@
-import React, { useState } from 'react';
-import { UserCheck, UserX, Clock, CalendarCheck, Search } from 'lucide-react';
-import { Notification } from '../types';
+import React, { useState, useEffect } from 'react';
+import { UserCheck, UserX, Clock, CalendarCheck, Search, Loader2 } from 'lucide-react';
+import { Notification, User } from '../types';
+import { db } from '../firebaseConfig';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 interface AttendanceProps {
   onAddNotification: (note: Omit<Notification, 'id' | 'read'>) => void;
 }
 
 const Attendance: React.FC<AttendanceProps> = ({ onAddNotification }) => {
-  // Mock students for this component
-  const [students] = useState<any[]>([
-    { id: 's1', name: 'أحمد محمود', grade: 'الصف الأول الإعدادي' },
-    { id: 's2', name: 'سارة علي', grade: 'الصف الأول الإعدادي' },
-    { id: 's3', name: 'خالد عمر', grade: 'الصف الثاني الثانوي' },
-    { id: 's4', name: 'منى يوسف', grade: 'الصف الثالث الابتدائي' },
-    { id: 's5', name: 'يوسف حسن', grade: 'الصف الأول الإعدادي' },
-  ]);
-
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [attendanceLog, setAttendanceLog] = useState<Record<string, 'PRESENT' | 'ABSENT' | 'LATE'>>({});
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Fetch Students from Firestore
+  useEffect(() => {
+    if (!db) {
+        setLoading(false);
+        return;
+    }
+    
+    // Query users where role is STUDENT
+    const q = query(collection(db, "users"), where("role", "==", "STUDENT"));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetchedStudents = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                name: data.fullName,
+                grade: data.gradeLevel || 'Unknown Grade'
+            };
+        });
+        setStudents(fetchedStudents);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleMark = (studentId: string, studentName: string, status: 'PRESENT' | 'ABSENT' | 'LATE') => {
     setAttendanceLog(prev => ({ ...prev, [studentId]: status }));
@@ -39,7 +60,7 @@ const Attendance: React.FC<AttendanceProps> = ({ onAddNotification }) => {
     }
   };
 
-  const filteredStudents = students.filter(s => s.name.includes(searchTerm));
+  const filteredStudents = students.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <div className="space-y-6">
@@ -71,8 +92,15 @@ const Attendance: React.FC<AttendanceProps> = ({ onAddNotification }) => {
          </div>
 
          <div className="grid gap-4">
-            {filteredStudents.length === 0 ? (
-               <p className="text-center text-gray-500 py-8">لا يوجد طلاب مطابقين للبحث</p>
+            {loading ? (
+               <div className="text-center py-10 text-gray-500 flex flex-col items-center">
+                   <Loader2 className="animate-spin w-8 h-8 mb-2" />
+                   جاري تحميل الطلاب...
+               </div>
+            ) : filteredStudents.length === 0 ? (
+               <p className="text-center text-gray-500 py-8">
+                  {students.length === 0 ? 'لا يوجد طلاب مسجلين في النظام بعد' : 'لا يوجد طلاب مطابقين للبحث'}
+               </p>
             ) : (
                filteredStudents.map(student => (
                   <div key={student.id} className="flex flex-col md:flex-row justify-between items-center bg-black/20 p-4 rounded-lg border border-gray-800 hover:border-gold-500/30 transition-all">

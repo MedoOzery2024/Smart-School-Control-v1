@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, UserRole, SchoolStage, SchoolType } from '../types';
 import { Plus, Trash2, UserCheck, X, Save, Download, Pencil, Upload, Database, Wifi, Search, AlertTriangle } from 'lucide-react';
-import { MOCK_USERS } from '../constants';
-import ExcelJS from 'exceljs';
 import { db } from '../firebaseConfig';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
@@ -14,7 +12,7 @@ interface UserManagementProps {
 }
 
 const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, schoolType, onDeleteSchool }) => {
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<UserRole>(UserRole.STUDENT);
   const [searchTerm, setSearchTerm] = useState(''); // Search State
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +45,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
             id: doc.id,
             ...doc.data()
         } as User));
-        if (fetchedUsers.length > 0) setUsers(fetchedUsers);
+        setUsers(fetchedUsers);
         setIsSyncing(false);
     });
     return () => unsubscribe();
@@ -129,9 +127,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
       gradeLevel: (formData.role === UserRole.STUDENT) ? formData.gradeLevel : undefined,
     };
 
-    // Password reset logic: Only update/set password if provided
     if (formData.password) {
-        userData.password = formData.password; // Note: In production, hash this via Cloud Functions
+        userData.password = formData.password;
     }
 
     try {
@@ -141,10 +138,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
             }
             setUsers(users.map(u => u.id === editingUserId ? { ...u, ...userData } : u));
         } else {
-            if (!formData.password && !db) { // Mock require pass
-                alert("Password required for new user"); 
-                return;
-            }
             if (db) {
                 await addDoc(collection(db, "users"), userData);
             } else {
@@ -225,7 +218,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
             {filteredUsers.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-8 text-center text-gray-500">
-                    {searchTerm ? 'No matches found.' : 'No data.'}
+                    {searchTerm ? 'No matches found.' : 'No users found in this category.'}
                 </td>
               </tr>
             ) : (

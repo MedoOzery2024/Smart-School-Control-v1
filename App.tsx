@@ -48,9 +48,7 @@ function AppContent() {
   const [regSchoolId, setRegSchoolId] = useState('');
 
   // Notifications State
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: '1', title: 'النظام', message: 'تم الاتصال بقاعدة البيانات بنجاح', type: 'INFO', time: 'الآن', read: false },
-  ]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // Check Auth State on Load
   useEffect(() => {
@@ -67,9 +65,9 @@ function AppContent() {
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     setCurrentUserRole(userData.role as UserRole);
-                    setCurrentSchoolName(userData.schoolName || MOCK_SCHOOL.name);
+                    setCurrentSchoolName(userData.schoolName || 'Smart School');
+                    setCurrentSchoolType(userData.schoolType || SchoolType.GOVERNMENT);
                     setCurrentFullName(userData.fullName || 'User');
-                    // Also fetch school details if needed
                 }
             } catch (e) {
                 console.error("Error fetching user data", e);
@@ -97,18 +95,11 @@ function AppContent() {
     e.preventDefault();
     if (!auth) {
         alert("Firebase لم يتم تهيئته. تأكد من ملف firebaseConfig.ts");
-        // Fallback for demo if no config
-        if (email === 'admin' && password === 'admin') {
-             setIsLoggedIn(true);
-             setCurrentUserRole(UserRole.ADMIN);
-             setCurrentFullName('Admin User');
-        }
         return;
     }
 
     try {
         await signInWithEmailAndPassword(auth, email, password);
-        // State update handled by onAuthStateChanged
     } catch (error: any) {
         console.error(error);
         alert("فشل تسجيل الدخول: " + error.message);
@@ -137,12 +128,13 @@ function AppContent() {
         };
 
         if (registerType === 'NEW_SCHOOL') {
-             // Create School Doc logic could go here
              const schoolId = 'SCH_' + Math.floor(Math.random() * 10000);
              userData.role = UserRole.ADMIN;
              userData.schoolId = schoolId;
              userData.schoolName = newSchoolName;
              userData.schoolType = newSchoolType;
+             // Update local state immediately for better UX
+             setCurrentSchoolName(newSchoolName);
              alert(`تم إنشاء المدرسة! المعرف: ${schoolId}`);
         } else {
             userData.schoolId = regSchoolId;
@@ -179,7 +171,7 @@ function AppContent() {
   };
 
   if (loading) {
-      return <div className="min-h-screen bg-deepblack flex items-center justify-center text-gold-500 font-bold">جاري التحميل والاتصال بقاعدة البيانات...</div>;
+      return <div className="min-h-screen bg-deepblack flex items-center justify-center text-gold-500 font-bold">جاري التحميل...</div>;
   }
 
   if (!isLoggedIn) {
@@ -200,14 +192,13 @@ function AppContent() {
           {!auth && (
               <div className="bg-red-900/30 border border-red-500/50 p-2 rounded text-red-200 text-xs text-center mb-4">
                   تنبيه: لم يتم تهيئة Firebase. يرجى ضبط ملف firebaseConfig.ts. <br/>
-                  (للتجربة: admin / admin)
               </div>
           )}
 
           {authMode === 'LOGIN' ? (
              <form onSubmit={handleLogin} className="space-y-4 animate-fadeIn">
                 <div>
-                  <label className="block text-sm text-gray-300 mb-1">البريد الإلكتروني (بدلاً من اسم المستخدم)</label>
+                  <label className="block text-sm text-gray-300 mb-1">البريد الإلكتروني</label>
                   <input 
                     type="email" 
                     required
@@ -234,7 +225,7 @@ function AppContent() {
                   type="submit"
                   className="w-full py-3 bg-gradient-to-r from-gold-600 to-gold-500 hover:from-gold-500 hover:to-gold-400 text-black font-bold rounded-lg shadow-lg shadow-gold-900/20 transition-all transform hover:scale-[1.02] mt-4"
                 >
-                  تسجيل الدخول الآمن
+                  تسجيل الدخول
                 </button>
 
                 <p className="text-center text-sm text-gray-400 mt-4">

@@ -3,10 +3,7 @@ import { StudyMaterial } from '../types';
 import { FileText, Image as ImageIcon, Trash2, Upload, Eye } from 'lucide-react';
 
 const StudyMaterials: React.FC = () => {
-  const [materials, setMaterials] = useState<StudyMaterial[]>([
-    { id: '1', title: 'ملزمة المراجعة النهائية - عربي', subject: 'اللغة العربية', type: 'PDF', url: '#', uploadDate: '2023-10-15', teacherId: 'u1' },
-    { id: '2', title: 'خريطة تضاريس مصر', subject: 'الدراسات الاجتماعية', type: 'IMAGE', url: '#', uploadDate: '2023-10-18', teacherId: 'u1' }
-  ]);
+  const [materials, setMaterials] = useState<StudyMaterial[]>([]);
 
   const [newTitle, setNewTitle] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('اللغة العربية');

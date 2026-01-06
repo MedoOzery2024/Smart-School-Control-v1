@@ -8,12 +8,14 @@ const Schedule: React.FC = () => {
 
   const handleCellClick = (dayIdx: number, periodIdx: number) => {
     const key = `${dayIdx}-${periodIdx}`;
-    // In a real app, this would open a modal to select Subject & Teacher
-    const randomSubject = SUBJECTS[Math.floor(Math.random() * SUBJECTS.length)];
-    setScheduleData(prev => ({
-      ...prev,
-      [key]: randomSubject
-    }));
+    // Simple toggle for demo or prompt
+    const subject = prompt("أدخل اسم المادة:", "لغة عربية");
+    if (subject) {
+        setScheduleData(prev => ({
+          ...prev,
+          [key]: subject
+        }));
+    }
   };
 
   return (

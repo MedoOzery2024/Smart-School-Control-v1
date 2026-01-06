@@ -31,12 +31,8 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
     subjectList.reduce((acc, sub) => ({ ...acc, [sub]: 50 }), {})
   );
 
-  // Initial Mock Data
-  const [students, setStudents] = useState<StudentGradeData[]>([
-    { id: '1', name: 'أحمد محمود', stage: 'PREP', subjects: { 'عربي': 85, 'إنجليزي': 70, 'رياضيات': 60, 'علوم': 75, 'دراسات': 80 }, status: 'PASS', finalGrade: 'ناجح', failedSubjects: [] },
-    { id: '2', name: 'سارة علي', stage: 'PREP', subjects: { 'عربي': 40, 'إنجليزي': 35, 'رياضيات': 55, 'علوم': 60, 'دراسات': 50 }, status: 'RETAKE', finalGrade: 'دور ثاني', failedSubjects: ['عربي', 'إنجليزي'] }, 
-    { id: '3', name: 'خالد عمر', stage: 'SECONDARY', subjects: { 'عربي': 30, 'إنجليزي': 20, 'رياضيات': 25, 'فيزياء': 40, 'كيمياء': 35 }, status: 'FAIL', finalGrade: 'راسب', failedSubjects: ['عربي', 'إنجليزي', 'رياضيات', 'فيزياء', 'كيمياء'] }, 
-  ]);
+  // Empty initial data
+  const [students, setStudents] = useState<StudentGradeData[]>([]);
 
   const handleMinScoreChange = (subject: string, value: string) => {
     const score = parseInt(value) || 0;
@@ -48,7 +44,13 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
 
   // --- Logic for Students (View Only) ---
   if (userRole === UserRole.STUDENT) {
-    // Mock the logged in student as the first one for demo
+    if (students.length === 0) {
+        return (
+            <div className="text-center p-10 text-gray-500 bg-darkgray rounded-xl border border-gray-800">
+                لم يتم رصد نتيجتك بعد.
+            </div>
+        );
+    }
     const myResult = students[0]; 
     return (
       <div className="max-w-2xl mx-auto space-y-6">
