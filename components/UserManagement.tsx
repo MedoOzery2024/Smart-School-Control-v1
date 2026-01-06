@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, UserRole, SchoolStage, SchoolType } from '../types';
-import { Plus, Trash2, UserCheck, X, Save, Download, Pencil, Upload, Database, Wifi, Search, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, UserCheck, X, Save, Download, Pencil, Upload, Database, Wifi, Search, AlertTriangle, Loader2 } from 'lucide-react';
 import { db } from '../firebaseConfig';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { useLanguage } from '../LanguageContext';
@@ -23,6 +23,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     fullName: '',
@@ -40,12 +41,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
   useEffect(() => {
     if (!db) return;
     setIsSyncing(true);
+    // Real-time listener
     const unsubscribe = onSnapshot(collection(db, "users"), (snapshot) => {
         const fetchedUsers: User[] = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as User));
         setUsers(fetchedUsers);
+        setIsSyncing(false);
+    }, (error) => {
+        console.error("Error fetching users:", error);
         setIsSyncing(false);
     });
     return () => unsubscribe();
@@ -68,15 +73,26 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
 
   // Permission Logic
   const canManageUsers = currentUserRole === UserRole.ADMIN || currentUserRole === UserRole.IT;
-  const canDeleteSchool = currentUserRole === UserRole.ADMIN;
 
   const handleDeleteUser = async (id: string) => {
     if (!canManageUsers) return;
-    if (confirm('Warning: Delete this user?')) {
-       if (db && !id.startsWith('u_')) {
-           await deleteDoc(doc(db, "users", id));
+    
+    if (confirm(t('confirmDeleteUser'))) {
+       try {
+           // We only delete the Firestore document. 
+           // Note: In client-side Firebase, we cannot delete the Auth credentials of OTHER users.
+           // Removing the document effectively disables the account in the app.
+           if (db && !id.startsWith('u_')) {
+               await deleteDoc(doc(db, "users", id));
+               alert(t('deleteUserSuccess'));
+           } else {
+               // Mock deletion
+               setUsers(prev => prev.filter(u => u.id !== id));
+           }
+       } catch (error: any) {
+           console.error("Delete failed:", error);
+           alert(`${t('deleteUserError')}: ${error.message}`);
        }
-       setUsers(prev => prev.filter(u => u.id !== id));
     }
   };
 
@@ -117,12 +133,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.username || !formData.fullName) return;
+    
+    setIsProcessing(true);
 
     const userData: any = {
       username: formData.username,
       fullName: formData.fullName,
       role: formData.role,
-      schoolId: 'sch_01',
+      schoolId: 'sch_01', // Ideally this comes from context/auth user
       stage: (formData.role === UserRole.STUDENT || formData.role === UserRole.TEACHER) ? formData.stage : undefined,
       gradeLevel: (formData.role === UserRole.STUDENT) ? formData.gradeLevel : undefined,
     };
@@ -146,9 +164,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
             }
         }
         setIsModalOpen(false);
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
-        alert("DB Error");
+        alert("خطأ في حفظ البيانات: " + e.message);
+    } finally {
+        setIsProcessing(false);
     }
   };
 
@@ -163,9 +183,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
          <div className="flex items-center gap-2 text-xs">
             <Database className={`w-4 h-4 ${useRealDb ? 'text-green-500' : 'text-gray-500'}`} />
             <span className={useRealDb ? 'text-green-400' : 'text-gray-500'}>
-               {useRealDb ? 'Live DB' : 'Mock Mode'}
+               {useRealDb ? 'قاعدة بيانات متصلة' : 'وضع المحاكاة'}
             </span>
-            {isSyncing && <span className="text-gold-500 flex items-center gap-1"><Wifi className="w-3 h-3 animate-pulse" /> Syncing...</span>}
+            {isSyncing && <span className="text-gold-500 flex items-center gap-1"><Wifi className="w-3 h-3 animate-pulse" /> جاري المزامنة...</span>}
          </div>
       </div>
 
@@ -181,23 +201,23 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
                  : 'text-gray-400 hover:text-white'
                }`}
              >
-               {role}
+               {t(role.toLowerCase() as any) || role}
              </button>
           ))}
         </div>
         
-        <div className="flex gap-2">
-           <div className="relative">
+        <div className="flex gap-2 w-full md:w-auto">
+           <div className="relative flex-1 md:flex-none">
               <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-500" />
               <input 
                 type="text"
                 placeholder={t('search')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-black/40 border border-gray-700 rounded px-10 py-2 text-white outline-none focus:border-gold-500"
+                className="w-full bg-black/40 border border-gray-700 rounded px-10 py-2 text-white outline-none focus:border-gold-500"
               />
            </div>
-          <button onClick={openAddUserModal} className="flex items-center gap-2 px-4 py-2 bg-gold-600 text-black font-bold rounded hover:bg-gold-500">
+          <button onClick={openAddUserModal} className="flex items-center gap-2 px-4 py-2 bg-gold-600 text-black font-bold rounded hover:bg-gold-500 whitespace-nowrap">
             <Plus className="w-4 h-4" />
             {t('addNew')}
           </button>
@@ -206,32 +226,32 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
 
       <div className="bg-darkgray rounded-xl border border-gold-700/20 overflow-hidden">
         <table className="w-full text-right">
-          <thead className="bg-black/40 text-gold-500">
+          <thead className="bg-black/40 text-gold-500 text-sm">
             <tr>
-              <th className="p-4">Username</th>
-              <th className="p-4">Full Name</th>
-              <th className="p-4">Details</th>
-              <th className="p-4 text-center">Actions</th>
+              <th className="p-4">اسم المستخدم</th>
+              <th className="p-4">الاسم الكامل</th>
+              <th className="p-4">تفاصيل</th>
+              <th className="p-4 text-center">إجراءات</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
             {filteredUsers.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-8 text-center text-gray-500">
-                    {searchTerm ? 'No matches found.' : 'No users found in this category.'}
+                    {searchTerm ? 'لا توجد نتائج مطابقة للبحث.' : 'لا يوجد مستخدمين في هذا القسم.'}
                 </td>
               </tr>
             ) : (
               filteredUsers.map(user => (
                 <tr key={user.id} className="hover:bg-white/5 transition-colors">
-                  <td className="p-4 font-mono text-gray-300">{user.username}</td>
+                  <td className="p-4 font-mono text-gray-300 text-sm">{user.username}</td>
                   <td className="p-4 font-semibold text-white">
                     <div className="flex items-center gap-2">
                       <UserCheck className="w-4 h-4 text-gray-500" />
                       {user.fullName}
                     </div>
                   </td>
-                  <td className="p-4 text-gray-400">
+                  <td className="p-4 text-gray-400 text-sm">
                       {user.stage && <span className="ml-2 bg-gray-800 px-2 py-0.5 rounded text-xs">{user.stage}</span>}
                       {user.gradeLevel && <span className="bg-gray-800 px-2 py-0.5 rounded text-xs">{user.gradeLevel}</span>}
                       {!user.stage && !user.gradeLevel && '-'}
@@ -239,13 +259,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
                   <td className="p-4 flex justify-center gap-2">
                     <button 
                       onClick={() => openEditUserModal(user)}
-                      className="p-2 text-gold-400 hover:bg-gold-900/20 rounded border border-gold-900/30"
+                      className="p-2 text-gold-400 hover:bg-gold-900/20 rounded border border-gold-900/30 transition-colors"
+                      title="تعديل"
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
                     <button 
                       onClick={() => handleDeleteUser(user.id)}
-                      className="p-2 text-red-500 hover:bg-red-900/20 rounded border border-red-900/30"
+                      className="p-2 text-red-500 hover:bg-red-900/20 rounded border border-red-900/30 transition-colors"
+                      title={t('delete')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -262,16 +284,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
         <div className="mt-10 border border-red-900/50 bg-red-900/10 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4 text-red-500">
             <AlertTriangle className="w-6 h-6" />
-            <h3 className="text-lg font-bold">Danger Zone</h3>
+            <h3 className="text-lg font-bold">منطقة الخطر</h3>
           </div>
           <p className="text-gray-400 text-sm mb-4">
-            Deleting the school account will permanently remove all associated users, data, and files. This action cannot be undone.
+            حذف حساب المدرسة سيؤدي إلى مسح جميع البيانات والملفات والمستخدمين المرتبطين بها نهائياً.
           </p>
           <button 
             onClick={() => setShowDeleteModal(true)}
             className="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded transition-colors"
           >
-            Delete School
+            حذف المدرسة
           </button>
         </div>
       )}
@@ -282,7 +304,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
             <div className="bg-darkgray border border-gold-700/30 rounded-xl p-6 w-full max-w-md shadow-2xl animate-fadeIn">
                 <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
                     <h3 className="text-xl font-bold text-white">
-                        {editingUserId ? 'Edit User' : 'Add New User'}
+                        {editingUserId ? 'تعديل مستخدم' : 'إضافة مستخدم جديد'}
                     </h3>
                     <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">
                         <X className="w-6 h-6" />
@@ -291,36 +313,41 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
                 
                 <form onSubmit={handleSaveUser} className="space-y-4">
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Full Name</label>
+                        <label className="block text-sm text-gray-400 mb-1">الاسم الكامل</label>
                         <input required type="text" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" value={formData.fullName} onChange={(e) => setFormData({...formData, fullName: e.target.value})} />
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Username / Email</label>
+                        <label className="block text-sm text-gray-400 mb-1">البريد الإلكتروني / اسم المستخدم</label>
                         <input required type="text" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} />
                     </div>
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Password {editingUserId && '(Leave blank to keep current)'}</label>
-                        <input type="password" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} placeholder={editingUserId ? "Set new password" : "Required"} required={!editingUserId} />
+                        <label className="block text-sm text-gray-400 mb-1">كلمة المرور {editingUserId && '(اتركها فارغة للإبقاء على الحالية)'}</label>
+                        <input type="password" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} placeholder={editingUserId ? "تعيين كلمة مرور جديدة" : "مطلوب"} required={!editingUserId} />
                     </div>
                     
                     {/* Role Selection */}
                     <div>
-                        <label className="block text-sm text-gray-400 mb-1">Role</label>
+                        <label className="block text-sm text-gray-400 mb-1">الدور (Role)</label>
                         <select 
                             className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none"
                             value={formData.role}
                             onChange={(e) => setFormData({...formData, role: e.target.value as UserRole})}
                         >
-                            <option value={UserRole.STUDENT}>Student</option>
-                            <option value={UserRole.TEACHER}>Teacher</option>
-                            <option value={UserRole.CONTROL}>Control Staff</option>
-                            <option value={UserRole.IT}>IT Specialist</option>
-                            <option value={UserRole.STAFF}>General Staff</option>
+                            <option value={UserRole.STUDENT}>طالب (Student)</option>
+                            <option value={UserRole.TEACHER}>معلم (Teacher)</option>
+                            <option value={UserRole.CONTROL}>موظف كنترول (Control)</option>
+                            <option value={UserRole.IT}>مسؤول تقني (IT)</option>
+                            <option value={UserRole.STAFF}>إداري (Staff)</option>
                         </select>
                     </div>
 
-                    <button type="submit" className="w-full bg-gold-600 hover:bg-gold-500 text-black font-bold py-2 rounded mt-2">
-                        <Save className="w-5 h-5 inline mr-2" /> Save User
+                    <button 
+                        type="submit" 
+                        disabled={isProcessing}
+                        className="w-full bg-gold-600 hover:bg-gold-500 text-black font-bold py-2 rounded mt-2 flex justify-center items-center gap-2"
+                    >
+                        {isProcessing ? <Loader2 className="animate-spin w-5 h-5" /> : <Save className="w-5 h-5" />}
+                        حفظ البيانات
                     </button>
                 </form>
             </div>
@@ -331,9 +358,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
             <div className="bg-darkgray border border-red-500/50 rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-4">Confirm School Deletion</h3>
+            <h3 className="text-xl font-bold text-white mb-4">تأكيد حذف المدرسة</h3>
             <p className="text-gray-300 mb-4">
-                To confirm, please type <span className="font-bold text-red-500">Delete School</span> below.
+                لتأكيد الحذف، يرجى كتابة <span className="font-bold text-red-500">Delete School</span> في المربع أدناه.
             </p>
             <input 
                 type="text" 
@@ -347,14 +374,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
                     onClick={() => setShowDeleteModal(false)}
                     className="px-4 py-2 text-gray-400 hover:text-white"
                 >
-                Cancel
+                إلغاء
                 </button>
                 <button 
                     onClick={confirmDeleteSchool}
                     disabled={deleteConfirmation !== 'Delete School'}
                     className="px-4 py-2 bg-red-600 text-white font-bold rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                Delete Permanently
+                حذف نهائي
                 </button>
             </div>
             </div>
