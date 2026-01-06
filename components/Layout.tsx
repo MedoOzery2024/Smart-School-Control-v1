@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Menu, X, LayoutDashboard, Users, Calendar, 
   FileText, GraduationCap, Award, BrainCircuit, LogOut,
-  Settings, BarChart2, Bell, BookOpen, CalendarCheck, Globe
+  Settings, BarChart2, Bell, BookOpen, CalendarCheck, Globe, HardDrive
 } from 'lucide-react';
 import { APP_NAME, DEVELOPER_NAME } from '../constants';
 import { ViewState, UserRole, Notification } from '../types';
@@ -50,6 +50,9 @@ const Layout: React.FC<LayoutProps> = ({
     // Control View
     { id: 'RESULTS', label: t('control'), icon: GraduationCap, roles: [UserRole.ADMIN, UserRole.CONTROL] },
     { id: 'CERTIFICATES', label: t('certificates'), icon: Award, roles: [UserRole.ADMIN, UserRole.CONTROL] },
+
+    // Special File Manager Section (Restricted)
+    { id: 'FILE_MANAGER', label: t('fileManager'), icon: HardDrive, roles: [UserRole.ADMIN, UserRole.IT, UserRole.CONTROL, UserRole.TEACHER] },
 
     // Teacher View
     { id: 'STUDY_MATERIALS', label: t('materials'), icon: BookOpen, roles: [UserRole.TEACHER, UserRole.ADMIN] },

@@ -39,6 +39,17 @@ export interface School {
   logoUrl?: string;
 }
 
+export interface SchoolFile {
+  id: string;
+  name: string;
+  type: string; // mime type or extension
+  size: number;
+  url: string; // Base64 or Storage URL
+  uploadedBy: string; // User Name
+  uploaderRole: UserRole; // To enforce isolation
+  uploadDate: string;
+}
+
 export interface StudyMaterial {
   id: string;
   title: string;
@@ -100,5 +111,6 @@ export type ViewState =
   | 'RESULTS' 
   | 'CERTIFICATES'
   | 'TEACHER_STATS'
-  | 'STUDY_MATERIALS' // New section
+  | 'STUDY_MATERIALS'
+  | 'FILE_MANAGER' // New
   | 'SETTINGS';

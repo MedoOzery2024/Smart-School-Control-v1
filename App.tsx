@@ -12,6 +12,7 @@ import ResultsManager from './components/ResultsManager';
 import Certificates from './components/Certificates';
 import TeacherStats from './components/TeacherStats';
 import StudyMaterials from './components/StudyMaterials';
+import FileManager from './components/FileManager';
 import Settings from './components/Settings';
 import Logo from './components/Logo';
 import { LanguageProvider } from './LanguageContext';
@@ -27,6 +28,7 @@ function AppContent() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ADMIN);
   const [currentSchoolName, setCurrentSchoolName] = useState(MOCK_SCHOOL.name);
   const [currentSchoolType, setCurrentSchoolType] = useState<SchoolType>(MOCK_SCHOOL.type);
+  const [currentFullName, setCurrentFullName] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Auth State
@@ -66,6 +68,7 @@ function AppContent() {
                     const userData = userDoc.data();
                     setCurrentUserRole(userData.role as UserRole);
                     setCurrentSchoolName(userData.schoolName || MOCK_SCHOOL.name);
+                    setCurrentFullName(userData.fullName || 'User');
                     // Also fetch school details if needed
                 }
             } catch (e) {
@@ -98,6 +101,7 @@ function AppContent() {
         if (email === 'admin' && password === 'admin') {
              setIsLoggedIn(true);
              setCurrentUserRole(UserRole.ADMIN);
+             setCurrentFullName('Admin User');
         }
         return;
     }
@@ -360,6 +364,7 @@ function AppContent() {
       {view === 'RESULTS' && <ResultsManager userRole={currentUserRole} />}
       {view === 'CERTIFICATES' && <Certificates />}
       {view === 'STUDY_MATERIALS' && <StudyMaterials />}
+      {view === 'FILE_MANAGER' && <FileManager userRole={currentUserRole} userName={currentFullName} />}
       {view === 'SETTINGS' && <Settings userRole={currentUserRole} />}
     </Layout>
   );
