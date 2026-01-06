@@ -76,7 +76,7 @@ const ExamBuilder: React.FC = () => {
         <div className="space-y-4">
            <div className="p-4 bg-black/20 rounded border border-gray-800">
               <div className="flex justify-between items-center mb-2">
-                 <span>طالب: أحمد محمد</span>
+                 <span>طالب: نموذج 1</span>
                  <input 
                    type="number" 
                    placeholder="الدرجة" 
@@ -96,7 +96,7 @@ const ExamBuilder: React.FC = () => {
 
            <div className="p-4 bg-black/20 rounded border border-gray-800">
               <div className="flex justify-between items-center mb-2">
-                 <span>طالب: محمود علي</span>
+                 <span>طالب: نموذج 2</span>
                  <input 
                    type="number" 
                    placeholder="الدرجة" 

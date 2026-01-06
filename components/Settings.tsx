@@ -4,9 +4,9 @@ import { Settings as SettingsIcon, Save, School, Book, Globe, Languages, FlaskCo
 import { useLanguage } from '../LanguageContext';
 
 const Settings: React.FC<{ userRole?: UserRole }> = ({ userRole }) => {
-  const [schoolName, setSchoolName] = useState('مدرسة المستقبل الدولية');
-  const [schoolType, setSchoolType] = useState<SchoolType>(SchoolType.INTERNATIONAL);
-  const [managerName, setManagerName] = useState('أ. أحمد المدير');
+  const [schoolName, setSchoolName] = useState('');
+  const [schoolType, setSchoolType] = useState<SchoolType>(SchoolType.GOVERNMENT);
+  const [managerName, setManagerName] = useState('');
   const { t } = useLanguage();
 
   // Specific settings state
@@ -133,6 +133,7 @@ const Settings: React.FC<{ userRole?: UserRole }> = ({ userRole }) => {
                      type="text" 
                      value={schoolName}
                      onChange={(e) => setSchoolName(e.target.value)}
+                     placeholder="أدخل اسم المدرسة"
                      className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 pr-10 text-white focus:border-gold-500 outline-none"
                    />
                  </div>
@@ -161,6 +162,7 @@ const Settings: React.FC<{ userRole?: UserRole }> = ({ userRole }) => {
                    type="text" 
                    value={managerName}
                    onChange={(e) => setManagerName(e.target.value)}
+                   placeholder="أدخل اسم المدير"
                    className="w-full bg-black/40 border border-gray-700 rounded-lg p-3 text-white focus:border-gold-500 outline-none"
                  />
                </div>

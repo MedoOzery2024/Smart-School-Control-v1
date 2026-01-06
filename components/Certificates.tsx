@@ -36,8 +36,8 @@ const Certificates: React.FC = () => {
            <h2 className="text-6xl font-black mb-8 text-gray-800" style={{ color: primaryColor }}>{customTitle}</h2>
            
            <p className="text-xl mt-8">تشهد إدارة المدرسة بأن الطالب</p>
-           <p className="text-4xl font-bold my-4 border-b-2 border-black pb-2 px-10">أحمد محمد محمود</p>
-           <p className="text-xl">قد اجتاز الصف <span className="font-bold">الأول الإعدادي</span> بنجاح وتفوق</p>
+           <p className="text-4xl font-bold my-4 border-b-2 border-black pb-2 px-10">اسم الطالب</p>
+           <p className="text-xl">قد اجتاز الصف <span className="font-bold">......</span> بنجاح وتفوق</p>
            
            <div className="mt-auto flex justify-between w-full px-20 mb-10">
               <div className="text-center">
@@ -68,7 +68,7 @@ const Certificates: React.FC = () => {
               
               <div className="my-10">
                  <p className="text-gray-500 mb-2">مقدمة إلى الطالب المتفوق</p>
-                 <h2 className="text-4xl font-bold text-gray-800 py-2" style={{ color: primaryColor }}>أحمد محمد محمود</h2>
+                 <h2 className="text-4xl font-bold text-gray-800 py-2" style={{ color: primaryColor }}>اسم الطالب</h2>
                  <p className="text-gray-500 mt-4 max-w-lg mx-auto">
                     تقديراً لجهوده المتميزة وتفوقه الدراسي في العام الحالي وحصوله على تقدير امتياز.
                  </p>
@@ -102,7 +102,7 @@ const Certificates: React.FC = () => {
             <h1 className="text-5xl italic mb-6 font-bold" style={{ color: primaryColor }}>{customTitle}</h1>
             
             <p className="text-lg text-gray-600 my-4">يمنح هذا التقدير للطالب</p>
-            <p className="text-3xl font-bold my-4">أحمد محمد محمود</p>
+            <p className="text-3xl font-bold my-4">اسم الطالب</p>
             <p className="text-lg text-gray-600 max-w-md mx-auto">
                لتفوقه الدراسي والأخلاقي خلال العام الدراسي الحالي
             </p>
