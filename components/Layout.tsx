@@ -51,8 +51,8 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'RESULTS', label: t('control'), icon: GraduationCap, roles: [UserRole.ADMIN, UserRole.CONTROL] },
     { id: 'CERTIFICATES', label: t('certificates'), icon: Award, roles: [UserRole.ADMIN, UserRole.CONTROL] },
 
-    // Special File Manager Section (Restricted)
-    { id: 'FILE_MANAGER', label: t('fileManager'), icon: HardDrive, roles: [UserRole.ADMIN, UserRole.IT, UserRole.CONTROL, UserRole.TEACHER] },
+    // Special File Manager Section (Restricted to IT/Control/Admin)
+    { id: 'FILE_MANAGER', label: t('fileManager'), icon: HardDrive, roles: [UserRole.ADMIN, UserRole.IT, UserRole.CONTROL] },
 
     // Teacher View
     { id: 'STUDY_MATERIALS', label: t('materials'), icon: BookOpen, roles: [UserRole.TEACHER, UserRole.ADMIN] },

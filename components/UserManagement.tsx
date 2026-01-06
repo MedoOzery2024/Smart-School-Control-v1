@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { User, UserRole, SchoolStage, SchoolType } from '../types';
-import { Plus, Trash2, UserCheck, X, Save, Download, Pencil, Upload, Database, Wifi, Search } from 'lucide-react';
+import { Plus, Trash2, UserCheck, X, Save, Download, Pencil, Upload, Database, Wifi, Search, AlertTriangle } from 'lucide-react';
 import { MOCK_USERS } from '../constants';
 import ExcelJS from 'exceljs';
 import { db } from '../firebaseConfig';
@@ -33,6 +33,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
     stage: SchoolStage.PRIMARY,
     gradeLevel: ''
   });
+
+  // Delete School Confirmation State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   // Fetch Users
   useEffect(() => {
@@ -78,6 +82,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
     }
   };
 
+  const confirmDeleteSchool = () => {
+    if (deleteConfirmation === 'Delete School') {
+        onDeleteSchool();
+    } else {
+        alert('Incorrect confirmation text.');
+    }
+  };
+
   const openAddUserModal = () => {
     setEditingUserId(null);
     setFormData({
@@ -96,7 +108,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
     setFormData({
         username: user.username,
         fullName: user.fullName,
-        password: '',
+        password: '', // Clear password field for security, user can enter new one to reset
         role: user.role,
         stage: user.stage || SchoolStage.PRIMARY,
         gradeLevel: user.gradeLevel || ''
@@ -117,6 +129,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
       gradeLevel: (formData.role === UserRole.STUDENT) ? formData.gradeLevel : undefined,
     };
 
+    // Password reset logic: Only update/set password if provided
+    if (formData.password) {
+        userData.password = formData.password; // Note: In production, hash this via Cloud Functions
+    }
+
     try {
         if (editingUserId) {
             if (db && !editingUserId.startsWith('u_')) {
@@ -124,6 +141,10 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
             }
             setUsers(users.map(u => u.id === editingUserId ? { ...u, ...userData } : u));
         } else {
+            if (!formData.password && !db) { // Mock require pass
+                alert("Password required for new user"); 
+                return;
+            }
             if (db) {
                 await addDoc(collection(db, "users"), userData);
             } else {
@@ -243,7 +264,26 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
         </table>
       </div>
 
-      {/* Add/Edit User Modal - Kept same logic, just omitted strict JSX duplication for brevity as requested by 'minimal updates', but logic is functionally preserved */}
+      {/* Danger Zone (Admin Only) */}
+      {currentUserRole === UserRole.ADMIN && (
+        <div className="mt-10 border border-red-900/50 bg-red-900/10 rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4 text-red-500">
+            <AlertTriangle className="w-6 h-6" />
+            <h3 className="text-lg font-bold">Danger Zone</h3>
+          </div>
+          <p className="text-gray-400 text-sm mb-4">
+            Deleting the school account will permanently remove all associated users, data, and files. This action cannot be undone.
+          </p>
+          <button 
+            onClick={() => setShowDeleteModal(true)}
+            className="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded transition-colors"
+          >
+            Delete School
+          </button>
+        </div>
+      )}
+
+      {/* Add/Edit User Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
             <div className="bg-darkgray border border-gold-700/30 rounded-xl p-6 w-full max-w-md shadow-2xl animate-fadeIn">
@@ -257,20 +297,73 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, school
                 </div>
                 
                 <form onSubmit={handleSaveUser} className="space-y-4">
-                    {/* Simplified form fields based on original file */}
                     <div>
                         <label className="block text-sm text-gray-400 mb-1">Full Name</label>
-                        <input required type="text" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white" value={formData.fullName} onChange={(e) => setFormData({...formData, fullName: e.target.value})} />
+                        <input required type="text" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" value={formData.fullName} onChange={(e) => setFormData({...formData, fullName: e.target.value})} />
                     </div>
                     <div>
                         <label className="block text-sm text-gray-400 mb-1">Username / Email</label>
-                        <input required type="text" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} />
+                        <input required type="text" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">Password {editingUserId && '(Leave blank to keep current)'}</label>
+                        <input type="password" className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} placeholder={editingUserId ? "Set new password" : "Required"} required={!editingUserId} />
                     </div>
                     
+                    {/* Role Selection */}
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">Role</label>
+                        <select 
+                            className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none"
+                            value={formData.role}
+                            onChange={(e) => setFormData({...formData, role: e.target.value as UserRole})}
+                        >
+                            <option value={UserRole.STUDENT}>Student</option>
+                            <option value={UserRole.TEACHER}>Teacher</option>
+                            <option value={UserRole.CONTROL}>Control Staff</option>
+                            <option value={UserRole.IT}>IT Specialist</option>
+                            <option value={UserRole.STAFF}>General Staff</option>
+                        </select>
+                    </div>
+
                     <button type="submit" className="w-full bg-gold-600 hover:bg-gold-500 text-black font-bold py-2 rounded mt-2">
-                        <Save className="w-5 h-5 inline mr-2" /> Save
+                        <Save className="w-5 h-5 inline mr-2" /> Save User
                     </button>
                 </form>
+            </div>
+        </div>
+      )}
+
+      {/* Delete School Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-darkgray border border-red-500/50 rounded-xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">Confirm School Deletion</h3>
+            <p className="text-gray-300 mb-4">
+                To confirm, please type <span className="font-bold text-red-500">Delete School</span> below.
+            </p>
+            <input 
+                type="text" 
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white mb-4 outline-none focus:border-red-500"
+                placeholder="Delete School"
+            />
+            <div className="flex justify-end gap-2">
+                <button 
+                    onClick={() => setShowDeleteModal(false)}
+                    className="px-4 py-2 text-gray-400 hover:text-white"
+                >
+                Cancel
+                </button>
+                <button 
+                    onClick={confirmDeleteSchool}
+                    disabled={deleteConfirmation !== 'Delete School'}
+                    className="px-4 py-2 bg-red-600 text-white font-bold rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                Delete Permanently
+                </button>
+            </div>
             </div>
         </div>
       )}

@@ -21,8 +21,8 @@ const FileManager: React.FC<FileManagerProps> = ({ userRole, userName }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { t } = useLanguage();
 
-  // Define allowed roles for this component
-  const allowedRoles = [UserRole.ADMIN, UserRole.IT, UserRole.CONTROL, UserRole.TEACHER];
+  // Define allowed roles for this component - Restricted to IT, CONTROL, and ADMIN
+  const allowedRoles = [UserRole.ADMIN, UserRole.IT, UserRole.CONTROL];
   const isAllowed = allowedRoles.includes(userRole);
 
   useEffect(() => {
@@ -136,7 +136,7 @@ const FileManager: React.FC<FileManagerProps> = ({ userRole, userName }) => {
       <div className="flex flex-col items-center justify-center h-[60vh] text-gray-500">
         <Lock className="w-16 h-16 mb-4 text-red-500/50" />
         <h2 className="text-xl font-bold text-white mb-2">{t('accessRestricted')}</h2>
-        <p>This module is only for IT, Control, and Teacher staff.</p>
+        <p>This module is only for IT and Control staff.</p>
       </div>
     );
   }
