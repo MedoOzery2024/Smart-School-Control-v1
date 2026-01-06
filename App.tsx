@@ -20,6 +20,7 @@ function App() {
   const [view, setView] = useState<ViewState>('DASHBOARD');
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.ADMIN);
   const [currentSchoolName, setCurrentSchoolName] = useState(MOCK_SCHOOL.name);
+  const [currentSchoolType, setCurrentSchoolType] = useState<SchoolType>(MOCK_SCHOOL.type);
 
   // Auth State
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
@@ -67,6 +68,7 @@ function App() {
       else setCurrentUserRole(UserRole.ADMIN); // Default to Admin for testing if no match
       
       setCurrentSchoolName(MOCK_SCHOOL.name); 
+      setCurrentSchoolType(MOCK_SCHOOL.type);
 
       // Set initial view based on role
       if (u.includes('student')) setView('EXAMS');
@@ -83,6 +85,7 @@ function App() {
         alert(`تم إنشاء المدرسة بنجاح!\nمعرف المدرسة الخاص بك هو: ${generatedId}\nيرجى حفظه للدخول.`);
         setSchoolId(generatedId);
         setCurrentSchoolName(newSchoolName);
+        setCurrentSchoolType(newSchoolType);
         setUsername(managerName.split(' ')[0] || 'admin');
     } else {
         alert('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول.');
@@ -287,7 +290,7 @@ function App() {
       notifications={notifications}
     >
       {view === 'DASHBOARD' && <Dashboard />}
-      {view === 'USERS' && <UserManagement currentUserRole={currentUserRole} onDeleteSchool={handleDeleteSchool} />}
+      {view === 'USERS' && <UserManagement currentUserRole={currentUserRole} schoolType={currentSchoolType} onDeleteSchool={handleDeleteSchool} />}
       {view === 'ATTENDANCE' && <Attendance onAddNotification={addNotification} />}
       {view === 'TEACHER_STATS' && <TeacherStats />}
       {view === 'SCHEDULE' && <Schedule />}

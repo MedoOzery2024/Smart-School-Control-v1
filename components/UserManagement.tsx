@@ -1,16 +1,31 @@
-import React, { useState } from 'react';
-import { User, UserRole, SchoolStage } from '../types';
-import { Plus, Trash2, FileSpreadsheet, Key, AlertOctagon, UserCheck } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { User, UserRole, SchoolStage, SchoolType } from '../types';
+import { Plus, Trash2, FileSpreadsheet, Key, AlertOctagon, UserCheck, X, Save, Download, Pencil, Upload } from 'lucide-react';
 import { MOCK_USERS } from '../constants';
+import ExcelJS from 'exceljs';
 
 interface UserManagementProps {
   currentUserRole: UserRole;
+  schoolType: SchoolType;
   onDeleteSchool: () => void;
 }
 
-const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, onDeleteSchool }) => {
+const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, schoolType, onDeleteSchool }) => {
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [activeTab, setActiveTab] = useState<UserRole>(UserRole.STUDENT);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    username: '',
+    fullName: '',
+    password: '',
+    role: UserRole.STUDENT,
+    stage: SchoolStage.PRIMARY,
+    gradeLevel: ''
+  });
 
   const filteredUsers = users.filter(u => u.role === activeTab);
 
@@ -22,7 +37,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, onDele
     if (!canManageUsers) return;
     if (confirm('تحذير: هل أنت متأكد من حذف هذا المستخدم؟ سيتم فقدان جميع بياناته.')) {
       setUsers(prev => prev.filter(u => u.id !== id));
-      alert('تم حذف المستخدم بنجاح.');
     }
   };
 
@@ -36,23 +50,185 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, onDele
 
   const handleDeleteSchoolAccount = () => {
     if (!canDeleteSchool) return;
-    const confirmName = prompt("تحذير خطير جداً!\nأنت على وشك حذف الحساب المدرسي بالكامل وجميع البيانات المرتبطة به.\nللتأكيد، يرجى كتابة 'حذف المدرسة' :");
-    if (confirmName === 'حذف المدرسة') {
+    const confirmName = prompt("تحذير خطير جداً!\nأنت على وشك حذف الحساب المدرسي بالكامل.\nللتأكيد، اكتب 'Delete School' أو 'حذف المدرسة':");
+    if (confirmName === 'حذف المدرسة' || confirmName === 'Delete School') {
        onDeleteSchool();
+    } else if (confirmName) {
+       alert("فشل التأكيد. العبارة غير صحيحة.");
     }
   };
 
-  const handleAddMock = () => {
-    if (!canManageUsers) return;
-    const newUser: User = {
-      id: `new_${Date.now()}`,
-      username: `user_${Date.now()}`,
-      fullName: 'مستخدم جديد',
-      role: activeTab,
+  const openAddUserModal = () => {
+    setEditingUserId(null);
+    setFormData({
+        username: '',
+        fullName: '',
+        password: '',
+        role: activeTab,
+        stage: SchoolStage.PRIMARY,
+        gradeLevel: ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const openEditUserModal = (user: User) => {
+    setEditingUserId(user.id);
+    setFormData({
+        username: user.username,
+        fullName: user.fullName,
+        password: user.password || '', 
+        role: user.role,
+        stage: user.stage || SchoolStage.PRIMARY,
+        gradeLevel: user.gradeLevel || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSaveUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.username || !formData.fullName) {
+        alert('يرجى ملء كافة الحقول الأساسية');
+        return;
+    }
+
+    // If adding new user, password is required. If editing, it's optional (only to change).
+    if (!editingUserId && !formData.password) {
+        alert('يرجى إدخال كلمة المرور للمستخدم الجديد');
+        return;
+    }
+
+    const userData: Partial<User> = {
+      username: formData.username,
+      fullName: formData.fullName,
+      role: formData.role,
       schoolId: 'sch_01',
-      stage: SchoolStage.PRIMARY
+      stage: (formData.role === UserRole.STUDENT || formData.role === UserRole.TEACHER) ? formData.stage : undefined,
+      gradeLevel: (formData.role === UserRole.STUDENT) ? formData.gradeLevel : undefined,
     };
-    setUsers([...users, newUser]);
+
+    if (formData.password) {
+        userData.password = formData.password;
+    }
+
+    if (editingUserId) {
+        // Update existing
+        setUsers(users.map(u => u.id === editingUserId ? { ...u, ...userData } : u));
+        alert('تم تعديل بيانات المستخدم بنجاح');
+    } else {
+        // Create new
+        const newUser: User = {
+          id: `u_${Date.now()}`,
+          ...userData as User,
+          password: formData.password
+        };
+        setUsers([...users, newUser]);
+        alert('تم إضافة المستخدم بنجاح');
+    }
+
+    setIsModalOpen(false);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportUsers = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const file = e.target.files[0];
+    const workbook = new ExcelJS.Workbook();
+    try {
+        const buffer = await file.arrayBuffer();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.getWorksheet(1);
+        if (!worksheet) {
+            alert('الملف فارغ أو لا يحتوي على أوراق عمل');
+            return;
+        }
+
+        const newUsers: User[] = [];
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Header
+
+            // Expecting columns: 1:Username, 2:Full Name, 3:Role, 4:Password, 5:Stage, 6:Grade
+            const username = row.getCell(1).value?.toString();
+            const fullName = row.getCell(2).value?.toString();
+            const roleStr = row.getCell(3).value?.toString()?.toUpperCase();
+            
+            if (username && fullName && roleStr) {
+                let role = UserRole.STUDENT;
+                if (roleStr.includes('TEACHER') || roleStr.includes('معلم')) role = UserRole.TEACHER;
+                else if (roleStr.includes('ADMIN') || roleStr.includes('مدير')) role = UserRole.ADMIN;
+                else if (roleStr.includes('IT')) role = UserRole.IT;
+                else if (roleStr.includes('CONTROL') || roleStr.includes('كنترول')) role = UserRole.CONTROL;
+                
+                let stage = SchoolStage.PRIMARY;
+                const stageVal = row.getCell(5).value?.toString();
+                if (stageVal) {
+                    if (stageVal.includes('PREP') || stageVal.includes('إعدادي')) stage = SchoolStage.PREP;
+                    else if (stageVal.includes('SEC') || stageVal.includes('ثانوي')) stage = SchoolStage.SECONDARY;
+                }
+
+                newUsers.push({
+                    id: `imp_${Date.now()}_${rowNumber}`,
+                    username,
+                    fullName,
+                    role,
+                    password: row.getCell(4).value?.toString() || '123456',
+                    schoolId: 'sch_01',
+                    stage: (role === UserRole.STUDENT || role === UserRole.TEACHER) ? stage : undefined,
+                    gradeLevel: row.getCell(6).value?.toString()
+                });
+            }
+        });
+
+        if (newUsers.length > 0) {
+            setUsers(prev => [...prev, ...newUsers]);
+            alert(`تم استيراد ${newUsers.length} مستخدم بنجاح`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("فشل الاستيراد. تأكد من صيغة الملف.");
+    } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleExportTeachers = async () => {
+    const teachers = users.filter(u => u.role === UserRole.TEACHER);
+    if (teachers.length ===0) {
+        alert('لا يوجد معلمون للتصدير');
+        return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('المعلمون');
+
+    worksheet.columns = [
+        { header: 'اسم المستخدم', key: 'username', width: 20 },
+        { header: 'الاسم الكامل', key: 'fullName', width: 30 },
+        { header: 'الدور', key: 'role', width: 15 },
+        { header: 'المرحلة', key: 'stage', width: 15 },
+    ];
+
+    teachers.forEach(t => {
+        worksheet.addRow({
+            username: t.username,
+            fullName: t.fullName,
+            role: t.role,
+            stage: t.stage || '-'
+        });
+    });
+    
+    worksheet.getRow(1).font = { bold: true };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `teachers_export_${Date.now()}.xlsx`;
+    a.click();
   };
 
   if (!canManageUsers) {
@@ -60,7 +236,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, onDele
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       
       {/* Admin Zone - School Deletion */}
       {canDeleteSchool && (
@@ -102,11 +278,28 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, onDele
         </div>
         
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-green-700/20 text-green-400 border border-green-700/50 rounded hover:bg-green-700/30">
-            <FileSpreadsheet className="w-4 h-4" />
-            استيراد Excel
+           <input 
+             type="file" 
+             accept=".xlsx, .xls" 
+             className="hidden" 
+             ref={fileInputRef} 
+             onChange={handleImportUsers}
+           />
+           <button 
+             onClick={handleImportClick} 
+             className="flex items-center gap-2 px-4 py-2 bg-purple-600/20 text-purple-400 border border-purple-600/50 rounded hover:bg-purple-600/30"
+           >
+             <Upload className="w-4 h-4" />
+             استيراد (Excel)
+           </button>
+          <button 
+            onClick={handleExportTeachers}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-600/50 rounded hover:bg-blue-600/30"
+          >
+            <Download className="w-4 h-4" />
+            تصدير المعلمين
           </button>
-          <button onClick={handleAddMock} className="flex items-center gap-2 px-4 py-2 bg-gold-600 text-black font-bold rounded hover:bg-gold-500">
+          <button onClick={openAddUserModal} className="flex items-center gap-2 px-4 py-2 bg-gold-600 text-black font-bold rounded hover:bg-gold-500">
             <Plus className="w-4 h-4" />
             إضافة جديد
           </button>
@@ -119,7 +312,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, onDele
             <tr>
               <th className="p-4">اسم المستخدم</th>
               <th className="p-4">الاسم الكامل</th>
-              <th className="p-4">المرحلة</th>
+              <th className="p-4">المرحلة / الصف</th>
               <th className="p-4 text-center">الإجراءات (IT / Admin)</th>
             </tr>
           </thead>
@@ -138,8 +331,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, onDele
                       {user.fullName}
                     </div>
                   </td>
-                  <td className="p-4 text-gray-400">{user.stage || '-'}</td>
+                  <td className="p-4 text-gray-400">
+                      {user.stage && <span className="ml-2 bg-gray-800 px-2 py-0.5 rounded text-xs">{user.stage}</span>}
+                      {user.gradeLevel && <span className="bg-gray-800 px-2 py-0.5 rounded text-xs">{user.gradeLevel}</span>}
+                      {!user.stage && !user.gradeLevel && '-'}
+                  </td>
                   <td className="p-4 flex justify-center gap-2">
+                    <button 
+                      onClick={() => openEditUserModal(user)}
+                      className="p-2 text-gold-400 hover:bg-gold-900/20 rounded border border-gold-900/30"
+                      title="تعديل البيانات"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
                     <button 
                       onClick={() => handleResetPassword(user.id, user.fullName)}
                       className="p-2 text-blue-400 hover:bg-blue-900/20 rounded border border-blue-900/30"
@@ -161,6 +365,108 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUserRole, onDele
           </tbody>
         </table>
       </div>
+
+      {/* Add/Edit User Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+            <div className="bg-darkgray border border-gold-700/30 rounded-xl p-6 w-full max-w-md shadow-2xl animate-fadeIn">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-2">
+                    <h3 className="text-xl font-bold text-white">
+                        {editingUserId ? 'تعديل بيانات المستخدم' : 'إضافة مستخدم جديد'}
+                    </h3>
+                    <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+                
+                <form onSubmit={handleSaveUser} className="space-y-4">
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">الاسم الكامل</label>
+                        <input 
+                            required
+                            type="text" 
+                            className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white outline-none focus:border-gold-500"
+                            value={formData.fullName}
+                            onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">اسم المستخدم</label>
+                        <input 
+                            required
+                            type="text" 
+                            className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white outline-none focus:border-gold-500"
+                            value={formData.username}
+                            onChange={(e) => setFormData({...formData, username: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">
+                            كلمة المرور {editingUserId && <span className="text-xs text-gray-500">(اتركه فارغاً إذا لم ترد التغيير)</span>}
+                        </label>
+                        <input 
+                            required={!editingUserId}
+                            type="password" 
+                            className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white outline-none focus:border-gold-500"
+                            value={formData.password}
+                            onChange={(e) => setFormData({...formData, password: e.target.value})}
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">الدور (Role)</label>
+                        <select 
+                            className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white outline-none focus:border-gold-500"
+                            value={formData.role}
+                            onChange={(e) => setFormData({...formData, role: e.target.value as UserRole})}
+                        >
+                            {Object.values(UserRole).map(r => (
+                                <option key={r} value={r}>{r}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {(formData.role === UserRole.STUDENT || formData.role === UserRole.TEACHER) && (
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-1 flex justify-between">
+                                <span>المرحلة الدراسية</span>
+                                <span className="text-xs text-gold-500">
+                                    ({schoolType === SchoolType.INTERNATIONAL ? 'نظام دولي' : 'نظام حكومي/لغات'})
+                                </span>
+                            </label>
+                            <select 
+                                className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white outline-none focus:border-gold-500"
+                                value={formData.stage}
+                                onChange={(e) => setFormData({...formData, stage: e.target.value as SchoolStage})}
+                            >
+                                {Object.values(SchoolStage).map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {formData.role === UserRole.STUDENT && (
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-1">الصف الدراسي</label>
+                            <input 
+                                type="text"
+                                placeholder="مثال: الصف الأول الإعدادي"
+                                className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white outline-none focus:border-gold-500"
+                                value={formData.gradeLevel}
+                                onChange={(e) => setFormData({...formData, gradeLevel: e.target.value})}
+                            />
+                        </div>
+                    )}
+
+                    <button type="submit" className="w-full bg-gold-600 hover:bg-gold-500 text-black font-bold py-2 rounded mt-2 flex items-center justify-center gap-2">
+                        <Save className="w-5 h-5" />
+                        {editingUserId ? 'حفظ التعديلات' : 'حفظ المستخدم'}
+                    </button>
+                </form>
+            </div>
+        </div>
+      )}
     </div>
   );
 };

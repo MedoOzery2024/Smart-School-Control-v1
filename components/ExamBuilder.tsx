@@ -27,7 +27,7 @@ const ExamBuilder: React.FC = () => {
             <label className="block text-sm text-gray-400 mb-1">عنوان الامتحان</label>
             <input 
               type="text" 
-              className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white" 
+              className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" 
               value={examTitle}
               onChange={e => setExamTitle(e.target.value)}
             />
@@ -37,20 +37,34 @@ const ExamBuilder: React.FC = () => {
                 <label className="block text-sm text-gray-400 mb-1">الدرجة العظمى</label>
                 <input 
                   type="number" 
-                  className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white" 
+                  min="1"
+                  className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none" 
                   value={totalScore}
-                  onChange={e => setTotalScore(Number(e.target.value))}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val >= 0) {
+                        setTotalScore(val);
+                    } else if (e.target.value === '') {
+                        setTotalScore(0);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    // Prevent negative signs, plus signs, and scientific notation
+                    if (['-', '+', 'e', 'E'].includes(e.key)) {
+                        e.preventDefault();
+                    }
+                  }}
                 />
              </div>
              <div className="flex-1">
                 <label className="block text-sm text-gray-400 mb-1">الترم</label>
-                <select className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white">
+                <select className="w-full bg-black/40 border border-gray-700 rounded p-2 text-white focus:border-gold-500 outline-none">
                   <option>الأول</option>
                   <option>الثاني</option>
                 </select>
              </div>
           </div>
-          <button className="w-full bg-gold-600 text-black font-bold py-2 rounded hover:bg-gold-500 mt-4">
+          <button className="w-full bg-gold-600 text-black font-bold py-2 rounded hover:bg-gold-500 mt-4 transition-colors shadow-lg">
             حفظ الامتحان
           </button>
         </div>

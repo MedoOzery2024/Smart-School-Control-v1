@@ -11,6 +11,7 @@ interface StudentGradeData {
     [key: string]: number; // subject name: score
   };
   status?: 'PASS' | 'RETAKE' | 'FAIL';
+  finalGrade?: string; // New field for the textual final grade
   failedSubjects?: string[];
 }
 
@@ -23,14 +24,27 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
 
+  const subjectList = ['عربي', 'إنجليزي', 'رياضيات', 'علوم', 'دراسات', 'فيزياء', 'كيمياء'];
+
+  // State for Minimum Passing Scores
+  const [minScores, setMinScores] = useState<Record<string, number>>(
+    subjectList.reduce((acc, sub) => ({ ...acc, [sub]: 50 }), {})
+  );
+
   // Initial Mock Data
   const [students, setStudents] = useState<StudentGradeData[]>([
-    { id: '1', name: 'أحمد محمود', stage: 'PREP', subjects: { 'عربي': 85, 'إنجليزي': 70, 'رياضيات': 60, 'علوم': 75, 'دراسات': 80 }, status: 'PASS', failedSubjects: [] },
-    { id: '2', name: 'سارة علي', stage: 'PREP', subjects: { 'عربي': 40, 'إنجليزي': 35, 'رياضيات': 55, 'علوم': 60, 'دراسات': 50 }, status: 'RETAKE', failedSubjects: ['عربي', 'إنجليزي'] }, 
-    { id: '3', name: 'خالد عمر', stage: 'SECONDARY', subjects: { 'عربي': 30, 'إنجليزي': 20, 'رياضيات': 25, 'فيزياء': 40, 'كيمياء': 35 }, status: 'FAIL', failedSubjects: ['عربي', 'إنجليزي', 'رياضيات', 'فيزياء', 'كيمياء'] }, 
+    { id: '1', name: 'أحمد محمود', stage: 'PREP', subjects: { 'عربي': 85, 'إنجليزي': 70, 'رياضيات': 60, 'علوم': 75, 'دراسات': 80 }, status: 'PASS', finalGrade: 'ناجح', failedSubjects: [] },
+    { id: '2', name: 'سارة علي', stage: 'PREP', subjects: { 'عربي': 40, 'إنجليزي': 35, 'رياضيات': 55, 'علوم': 60, 'دراسات': 50 }, status: 'RETAKE', finalGrade: 'دور ثاني', failedSubjects: ['عربي', 'إنجليزي'] }, 
+    { id: '3', name: 'خالد عمر', stage: 'SECONDARY', subjects: { 'عربي': 30, 'إنجليزي': 20, 'رياضيات': 25, 'فيزياء': 40, 'كيمياء': 35 }, status: 'FAIL', finalGrade: 'راسب', failedSubjects: ['عربي', 'إنجليزي', 'رياضيات', 'فيزياء', 'كيمياء'] }, 
   ]);
 
-  const subjectList = ['عربي', 'إنجليزي', 'رياضيات', 'علوم', 'دراسات', 'فيزياء', 'كيمياء'];
+  const handleMinScoreChange = (subject: string, value: string) => {
+    const score = parseInt(value) || 0;
+    setMinScores(prev => ({
+        ...prev,
+        [subject]: score
+    }));
+  };
 
   // --- Logic for Students (View Only) ---
   if (userRole === UserRole.STUDENT) {
@@ -48,14 +62,14 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
               myResult.status === 'PASS' ? 'bg-green-900/30 text-green-400 border-green-500' : 
               myResult.status === 'RETAKE' ? 'bg-yellow-900/30 text-yellow-400 border-yellow-500' : 'bg-red-900/30 text-red-400 border-red-500'
             }`}>
-              {myResult.status === 'PASS' ? 'ناجح ومنقول للصف التالي' : myResult.status === 'RETAKE' ? 'له دور ثاني' : 'راسب'}
+              {myResult.finalGrade || (myResult.status === 'PASS' ? 'ناجح' : myResult.status === 'RETAKE' ? 'دور ثاني' : 'راسب')}
             </div>
 
             <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
                {Object.entries(myResult.subjects).map(([sub, score]) => (
                  <div key={sub} className="bg-black/40 p-3 rounded flex justify-between items-center border border-gray-800">
                     <span className="text-gray-300">{sub}</span>
-                    <span className={`font-mono font-bold ${(score as number) >= 50 ? 'text-green-400' : 'text-red-400'}`}>{score as number}</span>
+                    <span className={`font-mono font-bold ${(score as number) >= (minScores[sub] || 50) ? 'text-green-400' : 'text-red-400'}`}>{score as number}</span>
                  </div>
                ))}
             </div>
@@ -66,28 +80,41 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
 
   // --- Logic for Admin, Control, IT (Edit Mode) ---
   
-  // Helper function to calculate status for a single student
+  // Helper function to calculate status and final grade
   const calculateStudentStatus = (subjects: Record<string, number>) => {
     const failedSubjects: string[] = [];
+    
+    // Iterate over subjects the student has marks for
     for (const [subj, score] of Object.entries(subjects)) {
-      if (score < 50) failedSubjects.push(subj);
+      // Get the min score for this subject, default to 50 if not found
+      const min = minScores[subj] !== undefined ? minScores[subj] : 50;
+      if (score < min) {
+        failedSubjects.push(subj);
+      }
     }
 
     let status: 'PASS' | 'RETAKE' | 'FAIL' = 'PASS';
+    let finalGrade = 'ناجح';
+
     if (failedSubjects.length > 0) {
-      if (failedSubjects.length <= 2) status = 'RETAKE'; // دور ثاني
-      else status = 'FAIL'; // راسب (معيد)
+      if (failedSubjects.length <= 2) {
+        status = 'RETAKE'; // دور ثاني
+        finalGrade = 'دور ثاني';
+      } else {
+        status = 'FAIL'; // راسب (معيد)
+        finalGrade = 'راسب';
+      }
     }
-    return { status, failedSubjects };
+    return { status, finalGrade, failedSubjects };
   };
 
   const calculateAllStatus = () => {
     const updated = students.map(s => {
-      const { status, failedSubjects } = calculateStudentStatus(s.subjects);
-      return { ...s, status, failedSubjects };
+      const { status, finalGrade, failedSubjects } = calculateStudentStatus(s.subjects);
+      return { ...s, status, finalGrade, failedSubjects };
     });
     setStudents(updated);
-    alert('تم إعادة حساب النتائج لجميع الطلاب بنجاح');
+    alert('تم إعادة حساب النتائج لجميع الطلاب بناءً على الدرجات الصغرى المحددة.');
   };
 
   const handleExportExcel = async () => {
@@ -102,7 +129,8 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
         { header: 'الاسم', key: 'name', width: 30 },
         { header: 'المرحلة', key: 'stage', width: 15 },
         ...subjectList.map(sub => ({ header: sub, key: sub, width: 15 })),
-        { header: 'الحالة', key: 'status', width: 15 },
+        { header: 'الحالة (كود)', key: 'status', width: 15 },
+        { header: 'النتيجة النهائية', key: 'finalGrade', width: 20 }, // New Column
         { header: 'المواد الراسبة', key: 'notes', width: 30 },
       ];
 
@@ -112,7 +140,8 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
           id: s.id,
           name: s.name,
           stage: s.stage,
-          status: s.status === 'PASS' ? 'ناجح' : s.status === 'RETAKE' ? 'دور ثاني' : 'راسب',
+          status: s.status, // Internal Code
+          finalGrade: s.finalGrade || (s.status === 'PASS' ? 'ناجح' : s.status === 'RETAKE' ? 'دور ثاني' : 'راسب'), // Calculated Text
           notes: s.failedSubjects?.join(', ') || ''
         };
         // Add subject scores
@@ -163,45 +192,56 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
 
       if (!worksheet) throw new Error("الملف لا يحتوي على أوراق عمل");
 
-      const newStudents: StudentGradeData[] = [];
+      const updatedStudents = [...students];
+      let newCount = 0;
+      let updateCount = 0;
 
       worksheet.eachRow((row, rowNumber) => {
         if (rowNumber === 1) return; // Skip Header
 
-        // Assuming Column Order: ID (1), Name (2), Stage (3), Subj1 (4), Subj2 (5)...
         const id = row.getCell(1).value?.toString() || `imp_${Date.now()}_${rowNumber}`;
-        const name = row.getCell(2).value?.toString() || 'غير محدد';
-        const stage = row.getCell(3).value?.toString() || 'PRIMARY';
+        const name = row.getCell(2).value?.toString();
+        const stage = row.getCell(3).value?.toString();
+
+        // If no ID and no Name, skip empty row
+        if (!id && !name) return;
 
         const subjects: Record<string, number> = {};
         
         // Dynamic mapping for subjects (Columns 4 to 3 + subjectList.length)
         subjectList.forEach((sub, idx) => {
           let score = Number(row.getCell(idx + 4).value);
-          
-          // Validation: Ensure score is number and 0-100
           if (isNaN(score)) score = 0;
           if (score < 0) score = 0;
           if (score > 100) score = 100;
-          
           subjects[sub] = score;
         });
 
-        // Calculate status immediately upon import
-        const { status, failedSubjects } = calculateStudentStatus(subjects);
+        // Calculate status immediately
+        const { status, finalGrade, failedSubjects } = calculateStudentStatus(subjects);
 
-        newStudents.push({
+        const newStudentData = {
           id,
-          name,
-          stage,
+          name: name || 'غير محدد',
+          stage: stage || 'PRIMARY',
           subjects,
           status,
+          finalGrade,
           failedSubjects
-        });
+        };
+
+        const existingIndex = updatedStudents.findIndex(s => s.id === id);
+        if (existingIndex >= 0) {
+            updatedStudents[existingIndex] = { ...updatedStudents[existingIndex], ...newStudentData };
+            updateCount++;
+        } else {
+            updatedStudents.push(newStudentData);
+            newCount++;
+        }
       });
 
-      setStudents(newStudents);
-      alert(`تم استيراد ${newStudents.length} سجل طالب بنجاح!`);
+      setStudents(updatedStudents);
+      alert(`تمت العملية بنجاح!\n- تم تحديث ${updateCount} طالب\n- تم إضافة ${newCount} طالب جديد`);
       
     } catch (error) {
       console.error(error);
@@ -253,7 +293,7 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
       <div className="bg-darkgray rounded-xl border border-gold-700/20 p-4">
         <div className="flex flex-wrap gap-4 mb-4">
            <button onClick={calculateAllStatus} className="bg-gold-600 hover:bg-gold-500 text-black font-bold px-6 py-2 rounded shadow-lg shadow-gold-900/20 transition-all">
-             تحديث النتائج
+             تحديث النتائج (إعادة الحساب)
            </button>
            <div className="relative">
               <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-500" />
@@ -276,15 +316,31 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
                 <th className="p-3 border-b border-gray-800">الاسم</th>
                 <th className="p-3 border-b border-gray-800">المرحلة</th>
                 {subjectList.map(sub => (
-                  <th key={sub} className="p-3 border-b border-gray-800 text-center">{sub}</th>
+                  <th key={sub} className="p-3 border-b border-gray-800 text-center min-w-[120px]">
+                    <div className="flex flex-col items-center gap-2">
+                        <span>{sub}</span>
+                        <div className="flex items-center gap-1 bg-black/40 p-1 rounded border border-gray-700/50">
+                            <span className="text-[10px] text-gray-500 whitespace-nowrap">النجاح من:</span>
+                            <input 
+                              type="number" 
+                              min="0" 
+                              max="100"
+                              className="w-10 bg-transparent text-center text-xs text-gold-500 font-bold outline-none border-b border-gray-600 focus:border-gold-500"
+                              value={minScores[sub]}
+                              onChange={(e) => handleMinScoreChange(sub, e.target.value)}
+                            />
+                        </div>
+                    </div>
+                  </th>
                 ))}
+                <th className="p-3 border-b border-gray-800 text-center">النتيجة النهائية</th>
                 <th className="p-3 border-b border-gray-800 text-center">الحالة</th>
                 <th className="p-3 border-b border-gray-800">ملاحظات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
               {filteredStudents.length === 0 ? (
-                <tr><td colSpan={subjectList.length + 4} className="p-4 text-center text-gray-500">لا توجد بيانات</td></tr>
+                <tr><td colSpan={subjectList.length + 5} className="p-4 text-center text-gray-500">لا توجد بيانات</td></tr>
               ) : (
                 filteredStudents.map(student => (
                   <tr key={student.id} className="hover:bg-white/5 transition-colors">
@@ -292,13 +348,18 @@ const ResultsManager: React.FC<ResultsManagerProps> = ({ userRole }) => {
                     <td className="p-3 text-gray-400 text-xs">{student.stage}</td>
                     {subjectList.map(sub => {
                       const score = student.subjects[sub] || 0;
-                      const isFail = score < 50;
+                      // Use the dynamic minScore for highlighting
+                      const min = minScores[sub] || 50;
+                      const isFail = score < min;
                       return (
                         <td key={sub} className={`p-3 text-center font-mono ${isFail ? 'text-red-500 font-bold bg-red-900/10' : 'text-green-400'}`}>
                           {score}
                         </td>
                       );
                     })}
+                    <td className="p-3 text-center font-bold text-white">
+                      {student.finalGrade || '-'}
+                    </td>
                     <td className="p-3 text-center">
                       {student.status === 'PASS' && (
                         <span className="flex items-center justify-center gap-1 px-2 py-1 bg-green-900/30 text-green-400 rounded text-xs border border-green-800">

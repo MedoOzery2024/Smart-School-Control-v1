@@ -13,7 +13,7 @@ const Settings: React.FC = () => {
   const [experimentalLang, setExperimentalLang] = useState('English');
 
   const handleSave = () => {
-    alert('تم حفظ إعدادات المدرسة بنجاح!');
+    alert('Settings have been saved successfully!');
   };
 
   const renderTypeSpecificSettings = () => {
@@ -221,7 +221,7 @@ const Settings: React.FC = () => {
             className="flex items-center gap-2 bg-gold-600 hover:bg-gold-500 text-black font-bold py-2 px-6 rounded-lg transition-colors shadow-lg shadow-gold-900/20"
           >
             <Save className="w-5 h-5" />
-            حفظ التغييرات
+            Save Settings
           </button>
         </div>
       </div>
